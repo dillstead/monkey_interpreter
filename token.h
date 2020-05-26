@@ -15,6 +15,7 @@ enum token_type
     MINUS,
     BANG,
     ASTERISK,
+    /* 10 */
     SLASH,
     LT,
     GT,
@@ -25,6 +26,7 @@ enum token_type
     LPAREN,
     RPAREN,
     LBRACE,
+    /* 20 */
     RBRACE,
     LBRAKET,
     RBRAKET,
@@ -35,6 +37,7 @@ enum token_type
     FALSE,
     IF,
     ELZE,
+    /* 30 */
     RET
 };
   

@@ -2,7 +2,6 @@
 #define LEXER_H
 
 #include <text.h>
-#include "token.h"
 
 struct lexer
 {
@@ -13,8 +12,8 @@ struct lexer
     char ch;
 };
 
-void setup_lexer(void);
-void lexer_init(struct lexer *lexer, const char *input);
+void lexer_init(void);
+struct lexer *lexer_alloc(const char *input);
+void lexer_destroy(struct lexer *lexer);
 struct token lexer_next_token(struct lexer *lexer);
-
 #endif
