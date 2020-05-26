@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "token.h"
 #include "lexer.h"
 
 static int test_next_token(void)
@@ -24,6 +25,7 @@ static int test_next_token(void)
         "\"foo bar\""
         "[1, 2];"
         "{\"foo\": \"bar\"}";
+
     struct token tokens[] =
         {
             {LET, {sizeof "let" - 1, "let"}},
@@ -114,28 +116,33 @@ static int test_next_token(void)
             {RBRACE, {sizeof "}" - 1, "}"}},
             {END, {sizeof "", ""}},
         };
-    struct lexer lexer;
+    struct lexer *lexer = NULL;
+    int success = -1;
 
     Fmt_register('T', Text_fmt);
-    setup_lexer();
-    lexer_init(&lexer, input);
+    lexer_init();
+    lexer = lexer_alloc(input);
     for (int i = 0; i < (sizeof tokens / sizeof tokens[0]); i++)
     {
-        struct token token = lexer_next_token(&lexer);
+        struct token token = lexer_next_token(lexer);
         if (token.type != tokens[i].type)
         {
             Fmt_print("tests[%d] - token type wrong. expected=%d, got=%d\n", 
                       i, tokens[i].type, token.type);
-            return -1;
+            goto cleanup;
         }
         if (Text_cmp(token.literal, tokens[i].literal) != 0)
         {
             Fmt_print("tests[%d] - token literal wrong. expected=%T, got=%T\n",
                       i, &tokens[i].literal, &token.literal);
-            return -1;
+            goto cleanup;
         }
     }
-    return 0;
+    success = 0;
+
+cleanup:
+    lexer_destroy(lexer);
+    return success;
 }
 
 int main(void)

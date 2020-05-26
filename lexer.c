@@ -1,7 +1,9 @@
 #include <string.h>
 #include <stdbool.h>
+#include <mem.h>
 #include <table.h>
 #include "lexer.h"
+#include "token.h"
 
 static Table_T keywords;
 
@@ -118,7 +120,7 @@ static void skip_whitespace(struct lexer *lexer)
     }
 }
 
-void setup_lexer(void)
+void lexer_init(void)
 {
     static struct token tokens[] =
         {
@@ -138,13 +140,22 @@ void setup_lexer(void)
     }
 }
 
-void lexer_init(struct lexer *lexer, const char *input)
+struct lexer *lexer_alloc(const char *input)
 {
+    struct lexer *lexer;
+
+    NEW0(lexer);
     lexer->input_length = strlen(input);
     lexer->input = input;
     lexer->position = 0;
     lexer->read_position = 0;
     read_char(lexer);
+    return lexer;
+}
+
+void lexer_destroy(struct lexer *lexer)
+{
+    FREE(lexer);
 }
 
 struct token lexer_next_token(struct lexer *lexer)
