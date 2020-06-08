@@ -163,7 +163,7 @@ struct token lexer_next_token(struct lexer *lexer)
     struct token token;
 
     skip_whitespace(lexer);
-    
+
     switch (lexer->ch)
     {
     case '=':
@@ -292,7 +292,6 @@ struct token lexer_next_token(struct lexer *lexer)
         token.literal = read_string(lexer);
         break;
     }
-    
     case '\0':
     {
         token.type = END;
