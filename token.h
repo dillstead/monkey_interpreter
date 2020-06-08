@@ -40,11 +40,13 @@ enum token_type
     /* 30 */
     RET
 };
-  
+
 struct token
 {
     enum token_type type;
     Text_T literal;
 } token;
+
+const char *token_type_name(enum token_type type);
 
 #endif
