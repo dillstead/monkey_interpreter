@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <fmt.h>
 #include <mem.h>
 
 #include "parser.h"
@@ -101,7 +102,7 @@ static struct statement *parse_statement(struct parser *parser)
 
 void parser_init(void)
 {
-    
+    Fmt_register('T', Text_fmt);
 }
 
 struct parser *parser_alloc(struct lexer *lexer)
