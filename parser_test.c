@@ -116,7 +116,7 @@ static int test_return_statements(void)
     Text_T ret = { sizeof "return" - 1, "return"};
     const char *input = "return 5;"
         "return 10;"
-        "return 993322;;";
+        "return 993322;";
     struct lexer *lexer = NULL;
     struct parser *parser = NULL;
     struct program *program = NULL;
