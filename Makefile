@@ -7,7 +7,7 @@ all: lexer_test parser_test interpreter
 
 lexer_test: token.o lexer.o lexer_test.o
 
-interpreter: token.o lexer.o repl.o interpreter.o
+interpreter: token.o lexer.o ast.o parser.o repl.o interpreter.o
 
 parser_test: token.o lexer.o ast.o parser.o parser_test.o
 
