@@ -6,6 +6,7 @@
 #include "token.h"
 #include "lexer.h"
 #include "parser.h"
+#include "evaluator.h"
 
 static void print_parse_errors(struct parser *parser)
 {
@@ -30,7 +31,7 @@ void repl_start(void)
         struct lexer *lexer;
         struct parser *parser;
         struct program *program;
-        char *output;
+        struct object *object;
 
         Fmt_print(">> ");
         if (fgets(input, sizeof input, stdin) == NULL)
@@ -43,16 +44,18 @@ void repl_start(void)
         if (Seq_length(parser->errors) != 0)
         {
             print_parse_errors(parser);
+            program_destroy(program);
             parser_destroy(parser);
             lexer_destroy(lexer);
             continue;
         }
         if (Seq_length(program->statements) > 0)
         {
-            output = program_to_string(program);
-            Fmt_print("%s\n", output);
-            FREE(output);            
+            object = eval((struct node *) program);
+            Fmt_print("%s\n", object_inspect(object));
+            object_destroy(object);
         }
+        program_destroy(program);
         parser_destroy(parser);
         lexer_destroy(lexer);
     }

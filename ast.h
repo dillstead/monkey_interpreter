@@ -5,22 +5,13 @@
 #include <seq.h>
 #include "token.h"
 
-enum statement_type
+enum node_type
 {
+    PROGRAM,
     LET_STMT,
     RETURN_STMT,
     EXPR_STMT,
-    BLOCK_STMT
-};
-
-struct statement
-{
-    enum statement_type type;
-    struct token token;
-};
-
-enum expression_type
-{
+    BLOCK_STMT,
     IDENT_EXPR,
     INT_LITERAL_EXPR,
     FUNC_LITERAL_EXPR,
@@ -31,41 +22,53 @@ enum expression_type
     CALL_EXPR
 };
 
+struct node
+{
+    enum node_type type;
+};
+
+struct statement
+{
+    enum node_type type;
+    struct token token;
+};
+
 struct expression
 {
-    enum expression_type type;
+    enum node_type type;
     struct token token;
 };
 
 struct program
 {
+    enum node_type type;
     Seq_T statements;
 };
 
 struct identifier
 {
-    enum expression_type type;
+    enum node_type type;
     struct token token;
     Text_T value;
 };
 
 struct integer_literal
 {
-    enum expression_type type;
+    enum node_type type;
     struct token token;
     long long value;
 };
 
 struct boolean
 {
-    enum expression_type type;
+    enum node_type type;
     struct token token;
     bool value;
 };
 
 struct function_literal
 {
-    enum expression_type type;
+    enum node_type type;
     struct token token;
     Seq_T parameters;
     struct block_statement *body;
@@ -73,7 +76,7 @@ struct function_literal
 
 struct let_statement
 {
-    enum statement_type type;
+    enum node_type type;
     struct token token;
     struct identifier *name;
     struct expression *value;
@@ -81,28 +84,28 @@ struct let_statement
 
 struct return_statement
 {
-    enum statement_type type;
+    enum node_type type;
     struct token token;
     struct expression *return_value;
 };
 
 struct expression_statement
 {
-    enum statement_type type;
+    enum node_type type;
     struct token token;
     struct expression *expression;
 };
 
 struct block_statement
 {
-    enum statement_type type;
+    enum node_type type;
     struct token token;
     Seq_T statements;
 };
 
 struct prefix_expression
 {
-    enum statement_type type;
+    enum node_type type;
     struct token token;
     Text_T op;
     struct expression *right;
@@ -110,7 +113,7 @@ struct prefix_expression
 
 struct infix_expression
 {
-    enum statement_type type;
+    enum node_type type;
     struct token token;
     struct expression *left;
     Text_T op;
@@ -119,7 +122,7 @@ struct infix_expression
 
 struct if_expression
 {
-    enum statement_type type;
+    enum node_type type;
     struct token token;
     struct expression *condition;
     struct block_statement *consequence;
@@ -128,7 +131,7 @@ struct if_expression
 
 struct call_expression
 {
-    enum statement_type type;
+    enum node_type type;
     struct token token;
     struct expression *function;
     Seq_T arguments;
@@ -149,7 +152,6 @@ Text_T prefix_expression_token_literal(struct prefix_expression *prefix_expressi
 Text_T infix_expression_token_literal(struct infix_expression *infix_expression);
 Text_T if_expression_token_literal(struct if_expression *if_expression);
 Text_T call_expression_token_literal(struct call_expression *call_expression);
-
 char *expression_to_string(struct expression *expression);
 char *statement_to_string(struct statement *statement);
 char *program_to_string(struct program *program);
@@ -165,7 +167,6 @@ char *prefix_expression_to_string(struct prefix_expression *prefix_expression);
 char *infix_expression_to_string(struct infix_expression *infix_expression);
 char *if_expression_to_string(struct if_expression *if_expression);
 char *call_expression_to_string(struct call_expression *call_expression);
-
 struct program *program_alloc(void);
 struct identifier *identifier_alloc(struct token token);
 struct integer_literal *integer_literal_alloc(struct token token);
@@ -179,7 +180,6 @@ struct prefix_expression *prefix_expression_alloc(struct token token);
 struct infix_expression *infix_expression_alloc(struct token token);
 struct if_expression *if_expression_alloc(struct token token);
 struct call_expression *call_expression_alloc(struct token token);
-
 void expression_destroy(struct expression *expression);
 void statement_destroy(struct statement *statement);
 void program_destroy(struct program *program);
@@ -195,7 +195,6 @@ void prefix_expression_destroy(struct prefix_expression *prefix_expression);
 void infix_expression_destroy(struct infix_expression *infix_expression);
 void if_expression_destroy(struct if_expression *if_expression);
 void call_expression_destroy(struct call_expression *call_expression);
-
 void program_append_statement(struct program *program,
                               struct statement *statement);
 void block_statement_append_statement(struct block_statement *block_statement,

@@ -291,7 +291,7 @@ cleanup:
     return success;
 }
 
-static int test_literal_expression(struct expression *expression, enum expression_type type,
+static int test_literal_expression(struct expression *expression, enum node_type type,
                                    void *value)
 {
     switch (type)
@@ -318,7 +318,7 @@ static int test_literal_expression(struct expression *expression, enum expressio
 }
 
 static int test_let_statement(struct statement *s, const char *name,
-                              enum expression_type type, void *value)
+                              enum node_type type, void *value)
 {
     struct let_statement *let_statement;
     Text_T let = { sizeof "let" - 1, "let"};
@@ -354,7 +354,7 @@ static int test_let_statements(void)
     {
         const char *input;
         const char *name;
-        enum expression_type type;
+        enum node_type type;
         void *value;
     } tests[] =
           {
@@ -426,7 +426,7 @@ static int test_return_statements(void)
     struct test
     {
         const char *input;
-        enum expression_type type;
+        enum node_type type;
         void *value;
     } tests[] =
           {
@@ -508,7 +508,7 @@ cleanup:
 
 static int test_prefix_expression(struct expression *expression,
                                   const char *operator,
-                                  enum expression_type type,
+                                  enum node_type type,
                                   void *value)
 {
     struct prefix_expression *prefix_expression;
@@ -533,10 +533,10 @@ static int test_prefix_expression(struct expression *expression,
 }
 
 static int test_infix_expression(struct expression *expression,
-                                 enum expression_type ltype,
+                                 enum node_type ltype,
                                  void *lvalue,
                                  const char *operator,
-                                 enum expression_type rtype,
+                                 enum node_type rtype,
                                  void *rvalue)
 
 {
@@ -571,7 +571,7 @@ static int test_prefix_expressions(void)
     {
         const char *input;
         const char *operator;
-        enum expression_type type;
+        enum node_type type;
         void *value;
     } tests[] =
           {
@@ -652,10 +652,10 @@ static int test_infix_expressions(void)
     struct tests
     {
         const char *input;
-        enum expression_type ltype;
+        enum node_type ltype;
         void *lvalue;
         const char *operator;
-        enum expression_type rtype;
+        enum node_type rtype;
         void *rvalue;
     } tests[] =
           {

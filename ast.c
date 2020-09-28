@@ -589,6 +589,7 @@ struct program *program_alloc(void)
     struct program *program;
 
     NEW0(program);
+    program->type = PROGRAM;
     program->statements = Seq_new(100);
     return program;
 }
