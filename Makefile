@@ -3,13 +3,15 @@ CFLAGS += -c -Wall -ansi -pedantic -std=c99 -I ./cii/include -g
 LDFLAGS = -L./cii
 LDLIBS = -lcii
 
-all: lexer_test parser_test interpreter
+all: lexer_test parser_test evaluator_test interpreter
 
 lexer_test: token.o lexer.o lexer_test.o
 
-interpreter: token.o lexer.o ast.o parser.o repl.o interpreter.o
+interpreter: token.o lexer.o ast.o parser.o object.o evaluator.o repl.o interpreter.o
 
 parser_test: token.o lexer.o ast.o parser.o parser_test.o
+
+evaluator_test: token.o lexer.o ast.o parser.o object.o evaluator.o evaluator_test.o
 
 clean:
 	rm -rf *.o
