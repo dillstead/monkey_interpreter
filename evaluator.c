@@ -48,14 +48,14 @@ static struct object *eval_bang_operator_expression(struct object *right)
 
 static struct object *eval_minus_prefix_operator_expression(struct object *right)
 {
-    struct integer_object *integer_object;
+    long long value;
     
     if (right->type != INTEGER_OBJ)
     {
         return (struct object *) &null_object;
     }
-    integer_object = (struct integer_object *) right;
-    return (struct object *) integer_object_alloc(-integer_object->value);
+    value = ((struct integer_object *) right)->value;
+    return (struct object *) integer_object_alloc(-value);
 }
 
 static struct object *eval_prefix_expression(struct prefix_expression *prefix_expression)
@@ -76,6 +76,81 @@ static struct object *eval_prefix_expression(struct prefix_expression *prefix_ex
     return object;
 }
 
+static struct object *eval_integer_infix_expression(struct object *left, struct object *right, Text_T op)
+{
+    long long left_value;
+    long long right_value;
+
+    left_value = ((struct integer_object *) left)->value;
+    right_value = ((struct integer_object *) right)->value;
+    if (Text_cmp(op, (Text_T) { sizeof "+" - 1, "+" }) == 0)
+    {
+        return (struct object *) integer_object_alloc(left_value + right_value);
+    }
+    else if (Text_cmp(op, (Text_T) { sizeof "-" - 1, "-" }) == 0)
+    {
+        return (struct object *) integer_object_alloc(left_value - right_value);
+    }
+    else if (Text_cmp(op, (Text_T) { sizeof "*" - 1, "*" }) == 0)
+    {
+        return (struct object *) integer_object_alloc(left_value * right_value);
+    }
+    else if (Text_cmp(op, (Text_T) { sizeof "/" - 1, "/" }) == 0)
+    {
+        return (struct object *) integer_object_alloc(left_value / right_value);
+    }
+    else if (Text_cmp(op, (Text_T) { sizeof ">" - 1, ">" }) == 0)
+    {
+        return (struct object *) boolean_object_alloc(left_value > right_value);
+    }
+    else if (Text_cmp(op, (Text_T) { sizeof "<" - 1, "<" }) == 0)
+    {
+        return (struct object *) boolean_object_alloc(left_value < right_value);
+    }
+    else if (Text_cmp(op, (Text_T) { sizeof "==" - 1, "==" }) == 0)
+    {
+        return (struct object *) boolean_object_alloc(left_value == right_value);
+    }
+    else if (Text_cmp(op, (Text_T) { sizeof "!=" - 1, "!=" }) == 0)
+    {
+        return (struct object *) boolean_object_alloc(left_value != right_value);
+    }
+    else
+    {
+        return (struct object *) &null_object;
+    }
+}
+
+static struct object *eval_infix_expression(struct infix_expression *infix_expression)
+{
+    struct object *right;
+    struct object *left;
+    Text_T op = infix_expression->op;
+    struct object *object = (struct object *) &null_object;
+
+    left = eval((struct node *) infix_expression->left);
+    right = eval((struct node *) infix_expression->right);
+    if (left->type == INTEGER_OBJ && right->type == INTEGER_OBJ)
+    {
+        object = eval_integer_infix_expression(left, right, infix_expression->op);
+    }
+    else if (Text_cmp(op, (Text_T) { sizeof "==" - 1, "==" }) == 0)
+    {
+        return (struct object *) boolean_object_alloc(left == right);
+    }
+    else if (Text_cmp(op, (Text_T) { sizeof "!=" - 1, "!=" }) == 0)
+    {
+        return (struct object *) boolean_object_alloc(left != right);
+    }
+    else
+    {
+        object = (struct object *) &null_object;
+    }
+    object_destroy(left);
+    object_destroy(right);
+    return object;
+}
+    
 struct object *eval(struct node *node)
 {
     switch (node->type)
@@ -100,6 +175,10 @@ struct object *eval(struct node *node)
     {
         return eval_prefix_expression((struct prefix_expression *) node);
     }
+    case INFIX_EXPR:
+    {
+        return eval_infix_expression((struct infix_expression *) node);
+    }
     default:
     {
         return NULL;
@@ -107,3 +186,7 @@ struct object *eval(struct node *node)
     }
     return NULL;
 }
+
+
+
+
