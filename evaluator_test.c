@@ -58,6 +58,16 @@ static int test_boolean_object(struct object *object, bool expected)
     return 0;
 }
 
+static int test_null_object(struct object *object)
+{
+    if (object != (struct object *) &null_object)
+    {
+        Fmt_print("object is not NULL. got=%d (%+v)", object->type);
+        return -1;
+    }
+    return 0;
+}
+
 static int test_eval_integer_expression(void)
 {
     struct test
@@ -192,9 +202,60 @@ cleanup:
     return success;
 }
 
+static int test_if_else_expressions(void)
+{
+    struct test
+    {
+        const char *input;
+        long long expected;
+    } tests[] =
+          {
+              {"if (true) { 10 }", 10},
+              {"if (false) { 10 }", 0 /* NULL */},
+              {"if (1) { 10 }", 10},
+              {"if (1 < 2) { 10 }", 10},
+              {"if (1 > 2) { 10 }", 0 /* NULL */},
+              {"if (1 > 2) { 10 } else { 20 }", 20},
+              {"if (1 < 2) { 10 } else { 20 }", 10}
+          };
+    struct object *object;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
+    {
+        object = test_eval(tests[i].input);
+        if (object->type == INTEGER_OBJ)
+        {
+            if (test_integer_object(object, tests[i].expected) != 0)
+            {
+                goto cleanup;
+            }            
+        }
+        else
+        {
+            if (test_null_object(object) != 0)
+            {
+                goto cleanup;
+            }            
+        }
+        object_destroy(object);
+        object = NULL;
+    }
+    success = 0;
+
+cleanup:
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
 int main(void)
 {
-    if (test_eval_integer_expression() != 0)
+    /*if (test_eval_integer_expression() != 0)
     {
         return EXIT_FAILURE;
     }
@@ -203,6 +264,10 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_bang_operator() != 0)
+    {
+        return EXIT_FAILURE;
+    }*/
+    if (test_if_else_expressions() != 0)
     {
         return EXIT_FAILURE;
     }
