@@ -150,6 +150,55 @@ static struct object *eval_infix_expression(struct infix_expression *infix_expre
     object_destroy(right);
     return object;
 }
+
+static struct object *eval_block_statement(struct block_statement *block_statement)
+{
+    struct object *object;
+
+    for (int i = 0; i < Seq_length(block_statement->statements); i++)
+    {
+        object = eval((struct node *) Seq_get(block_statement->statements, i));
+    }
+    return object;
+}
+
+static bool is_truthy(struct object *object)
+{
+    if (object == (struct object *) &true_object)
+    {
+        return true;
+    }
+    else if (object == (struct object *) &false_object)
+    {
+        return false;
+    }
+    else if (object == (struct object *) &null_object)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+static struct object *eval_if_expression(struct if_expression *if_expression)
+{
+    struct object *condition;
+    struct object *object = (struct object *) &null_object;
+    
+    condition = eval((struct node *) if_expression->condition);
+    if (is_truthy(condition))
+    {
+        object = eval((struct node *) if_expression->consequence);
+    }
+    else if (if_expression->alternative != NULL)
+    {
+        object = eval((struct node *) if_expression->alternative);
+    }
+    object_destroy(condition);
+    return object;
+}
     
 struct object *eval(struct node *node)
 {
@@ -158,6 +207,14 @@ struct object *eval(struct node *node)
     case PROGRAM:
     {
         return eval_program((struct program *) node);
+    }
+    case BLOCK_STMT:
+    {
+        return eval_block_statement((struct block_statement *) node);
+    }
+    case IF_EXPR:
+    {
+        return eval_if_expression((struct if_expression *) node);
     }
     case INT_LITERAL_EXPR:
     {
