@@ -3,10 +3,18 @@
 static struct object *eval_program(struct program *program)
 {
     struct object *object;
+    struct return_value *return_value;
 
     for (int i = 0; i < Seq_length(program->statements); i++)
     {
         object = eval((struct node *) Seq_get(program->statements, i));
+        if (object->type == RETURN_VALUE)
+        {
+            return_value = (struct return_value *) object;
+            object = return_value->value;
+            object_destroy((struct object *) return_value);
+            return object;
+        }
     }
     return object;
 }
@@ -158,8 +166,20 @@ static struct object *eval_block_statement(struct block_statement *block_stateme
     for (int i = 0; i < Seq_length(block_statement->statements); i++)
     {
         object = eval((struct node *) Seq_get(block_statement->statements, i));
+        if (object != NULL && object->type == RETURN_VALUE)
+        {
+            return object;
+        }
     }
     return object;
+}
+
+static struct object *eval_return_statement(struct return_statement *return_statement)
+{
+    struct object *value;
+    
+    value = eval((struct node *) return_statement->return_value);
+    return (struct object *) return_value_alloc(value);    
 }
 
 static bool is_truthy(struct object *object)
@@ -185,7 +205,7 @@ static bool is_truthy(struct object *object)
 static struct object *eval_if_expression(struct if_expression *if_expression)
 {
     struct object *condition;
-    struct object *object = (struct object *) &null_object;
+    struct object *object =  (struct object *) &null_object;
     
     condition = eval((struct node *) if_expression->condition);
     if (is_truthy(condition))
@@ -236,6 +256,10 @@ struct object *eval(struct node *node)
     {
         return eval_infix_expression((struct infix_expression *) node);
     }
+    case RETURN_STMT:
+    {
+        return eval_return_statement((struct return_statement *) node);
+    }        
     default:
     {
         return NULL;
@@ -243,7 +267,3 @@ struct object *eval(struct node *node)
     }
     return NULL;
 }
-
-
-
-

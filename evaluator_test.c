@@ -253,9 +253,48 @@ cleanup:
     return success;
 }
 
+static int test_return_statements(void)
+{
+    struct test
+    {
+        const char *input;
+        long long expected;
+    } tests[] =
+          {
+              {"return 10;", 10},
+              {"return 10; 9;", 10},
+              {"return 2 * 5; 9;", 10},
+              {"9; return 2 * 5; 9;", 10},
+              { "if (10 > 1) { if (10 > 1) { return 10; } return 1; }", 10}
+          };
+    struct object *object;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
+    {
+        object = test_eval(tests[i].input);
+        if (test_integer_object(object, tests[i].expected) != 0)
+        {
+            goto cleanup;
+        }            
+        object_destroy(object);
+        object = NULL;
+    }
+    success = 0;
+
+cleanup:
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
 int main(void)
 {
-    /*if (test_eval_integer_expression() != 0)
+    if (test_eval_integer_expression() != 0)
     {
         return EXIT_FAILURE;
     }
@@ -266,8 +305,12 @@ int main(void)
     if (test_bang_operator() != 0)
     {
         return EXIT_FAILURE;
-    }*/
+    }
     if (test_if_else_expressions() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_return_statements() != 0)
     {
         return EXIT_FAILURE;
     }

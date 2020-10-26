@@ -24,6 +24,16 @@ static char *boolean_object_inspect(struct boolean_object *boolean)
     return boolean->inspect;
 }
 
+static void return_value_destroy(struct return_value *return_value)
+{
+    FREE(return_value);
+}
+
+static char *return_value_inspect(struct return_value *return_value)
+{
+    return object_inspect(return_value->value);
+}
+
 static char *null_object_inspect(struct null_object *null)
 {
     return null->inspect;
@@ -41,6 +51,12 @@ void object_destroy(struct object *object)
     case INTEGER_OBJ:
     {
         integer_object_destroy((struct integer_object *) object);
+        break;
+    }
+    case RETURN_VALUE:
+    {
+        return_value_destroy((struct return_value *) object);
+        break;
     }
     default:
     {
@@ -60,6 +76,10 @@ char *object_inspect(struct object *object)
     {
         return boolean_object_inspect((struct boolean_object *) object);
     }
+    case RETURN_VALUE:
+    {
+        return return_value_inspect((struct return_value *) object);
+    }
     case NULL_OBJ:
     {
         return null_object_inspect((struct null_object *) object);
@@ -73,10 +93,20 @@ struct integer_object *integer_object_alloc(long long value)
     struct integer_object *integer;
     
     NEW0(integer);
+    integer->type = INTEGER_OBJ;
     integer->value = value;
     return integer;
 }
 
+struct return_value *return_value_alloc(struct object *value)
+{
+    struct return_value *return_value;
+    
+    NEW0(return_value);
+    return_value->type = RETURN_VALUE;
+    return_value->value = value;
+    return return_value;
+}
 
 struct boolean_object *boolean_object_alloc(bool value)
 {
