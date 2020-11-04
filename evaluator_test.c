@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "parser.h"
 #include "evaluator.h"
@@ -292,6 +293,76 @@ cleanup:
     return success;
 }
 
+static int test_error_handling(void)
+{
+    struct test
+    {
+        const char *input;
+        const char *expected;
+    } tests[] =
+          {
+              {
+                "5 + true;",
+                "type mismatch: INTEGER + BOOLEAN"
+              },
+              {
+                  "5 + true; 5;",
+                  "type mismatch: INTEGER + BOOLEAN"
+              },
+              {
+                  "-true",
+                  "unknown operator: -BOOLEAN"
+              },
+              {
+                  "true + false;",
+                  "unknown operator: BOOLEAN + BOOLEAN"
+              },
+              {
+                  "5; true + false; 5",
+                  "unknown operator: BOOLEAN + BOOLEAN"
+              },
+              {
+                  "if (10 > 1) { true + false; }",
+                  "unknown operator: BOOLEAN + BOOLEAN"
+              },
+              {
+                  "if (10 > 1) { if (10 > 1) { return true + false; } return 1; }",
+                  "unknown operator: BOOLEAN + BOOLEAN"
+              }
+          };
+    struct object *object;
+    struct error_object *error_object;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
+    {
+        object = test_eval(tests[i].input);
+        if (object->type != ERROR_OBJ)
+        {
+            Fmt_print("object is not error got=%d\n", object->type);
+        }
+        error_object = (struct error_object *) object;
+        if (strcmp(error_object->value, tests[i].expected) != 0)
+        {
+            Fmt_print("object has wrong value got=%s, want=%s\n",
+                      error_object->value, tests[i].expected);
+            goto cleanup;
+        }            
+        object_destroy(object);
+        object = NULL;
+    }
+    success = 0;
+
+cleanup:
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
 int main(void)
 {
     if (test_eval_integer_expression() != 0)
@@ -311,6 +382,10 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_return_statements() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_error_handling() != 0)
     {
         return EXIT_FAILURE;
     }

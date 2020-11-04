@@ -1,9 +1,17 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <mem.h>
 
 #include "object.h"
 
+const char *object_type_str [] =
+{
+    [INTEGER_OBJ] = "INTEGER",
+    [BOOLEAN_OBJ] = "BOOLEAN",
+    [NULL_OBJ] = "NULL"
+};
+    
 struct boolean_object true_object = { BOOLEAN_OBJ, true, "true" };
 struct boolean_object false_object  = { BOOLEAN_OBJ, false, "false" };
 struct null_object null_object = { NULL_OBJ, "null" };
@@ -39,6 +47,16 @@ static char *null_object_inspect(struct null_object *null)
     return null->inspect;
 }
 
+static void error_object_destroy(struct error_object *error_object)
+{
+    FREE(error_object);
+}
+
+static char *error_object_inspect(struct error_object *error)
+{
+    return error->value;
+}
+
 enum object_type object_type(struct object *object)
 {
     return object->type;
@@ -56,6 +74,11 @@ void object_destroy(struct object *object)
     case RETURN_VALUE:
     {
         return_value_destroy((struct return_value *) object);
+        break;
+    }
+    case ERROR_OBJ:
+    {
+        error_object_destroy((struct error_object *) object);
         break;
     }
     default:
@@ -83,6 +106,10 @@ char *object_inspect(struct object *object)
     case NULL_OBJ:
     {
         return null_object_inspect((struct null_object *) object);
+    }
+    case ERROR_OBJ:
+    {
+        return error_object_inspect((struct error_object *) object);
     }
     }
     return NULL;
@@ -116,4 +143,17 @@ struct boolean_object *boolean_object_alloc(bool value)
 struct null_object *null_object_alloc(void)
 {
     return &null_object;
+}
+
+struct error_object *error_object_alloc(const char *value, ...)
+{
+    struct error_object *error;
+    va_list_box box;
+    
+    NEW0(error);
+    error->type = ERROR_OBJ;
+    va_start(box.ap, value);
+    Fmt_vsfmt(error->value, sizeof error->value, value, &box);
+    va_end(box.ap);
+    return error;
 }

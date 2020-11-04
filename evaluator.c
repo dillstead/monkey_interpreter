@@ -15,6 +15,10 @@ static struct object *eval_program(struct program *program)
             object_destroy((struct object *) return_value);
             return object;
         }
+        else if (object->type == ERROR_OBJ)
+        {
+            return object;
+        }
     }
     return object;
 }
@@ -60,7 +64,8 @@ static struct object *eval_minus_prefix_operator_expression(struct object *right
     
     if (right->type != INTEGER_OBJ)
     {
-        return (struct object *) &null_object;
+        return (struct object *) error_object_alloc("unknown operator: -%s", 
+                                                    object_type_str[right->type]);
     }
     value = ((struct integer_object *) right)->value;
     return (struct object *) integer_object_alloc(-value);
@@ -68,10 +73,14 @@ static struct object *eval_minus_prefix_operator_expression(struct object *right
 
 static struct object *eval_prefix_expression(struct prefix_expression *prefix_expression)
 {
-    struct object *right;
+    struct object *right = NULL;
     struct object *object = NULL;
     
     right = eval((struct node *) prefix_expression->right);
+    if (right->type == ERROR_OBJ)
+    {
+        return right;
+    }
     if (Text_cmp(prefix_expression->op, (Text_T) { sizeof "!" - 1, "!" }) == 0)
     {
         object = eval_bang_operator_expression(right);
@@ -79,6 +88,11 @@ static struct object *eval_prefix_expression(struct prefix_expression *prefix_ex
     else if (Text_cmp(prefix_expression->op, (Text_T) { sizeof "-" - 1, "-" }) == 0)
     {
         object = eval_minus_prefix_operator_expression(right);
+    }
+    else
+    {
+        object = (struct object *) error_object_alloc("unknown operator: %T%s", &prefix_expression->op,
+                                                      object_type_str[right->type]);
     }
     object_destroy(right);
     return object;
@@ -125,34 +139,56 @@ static struct object *eval_integer_infix_expression(struct object *left, struct 
     }
     else
     {
-        return (struct object *) &null_object;
+        return (struct object *) error_object_alloc("unknown operator: %s %T %s", 
+                                                    object_type_str[left->type],
+                                                    &op,
+                                                    object_type_str[right->type]);   
     }
 }
 
 static struct object *eval_infix_expression(struct infix_expression *infix_expression)
 {
-    struct object *right;
-    struct object *left;
+    struct object *right = NULL;
+    struct object *left = NULL;
     Text_T op = infix_expression->op;
     struct object *object = (struct object *) &null_object;
 
     left = eval((struct node *) infix_expression->left);
+    if (left->type == ERROR_OBJ)
+    {
+        return left;
+    }
     right = eval((struct node *) infix_expression->right);
+    if (right->type == ERROR_OBJ)
+    {
+        object_destroy(left);
+        return right;
+    }
     if (left->type == INTEGER_OBJ && right->type == INTEGER_OBJ)
     {
         object = eval_integer_infix_expression(left, right, infix_expression->op);
     }
     else if (Text_cmp(op, (Text_T) { sizeof "==" - 1, "==" }) == 0)
     {
-        return (struct object *) boolean_object_alloc(left == right);
+        object = (struct object *) boolean_object_alloc(left == right);
     }
     else if (Text_cmp(op, (Text_T) { sizeof "!=" - 1, "!=" }) == 0)
     {
-        return (struct object *) boolean_object_alloc(left != right);
+        object = (struct object *) boolean_object_alloc(left != right);
+    }
+    else if (left->type != right->type)
+    {
+        object = (struct object *) error_object_alloc("type mismatch: %s %T %s", 
+                                                      object_type_str[left->type],
+                                                      &op,
+                                                      object_type_str[right->type]);   
     }
     else
     {
-        object = (struct object *) &null_object;
+        object = (struct object *) error_object_alloc("unknown operator: %s %T %s", 
+                                                      object_type_str[left->type],
+                                                      &op,
+                                                      object_type_str[right->type]);   
     }
     object_destroy(left);
     object_destroy(right);
@@ -166,7 +202,7 @@ static struct object *eval_block_statement(struct block_statement *block_stateme
     for (int i = 0; i < Seq_length(block_statement->statements); i++)
     {
         object = eval((struct node *) Seq_get(block_statement->statements, i));
-        if (object != NULL && object->type == RETURN_VALUE)
+        if (object->type == RETURN_VALUE || object->type == ERROR_OBJ)
         {
             return object;
         }
@@ -179,6 +215,10 @@ static struct object *eval_return_statement(struct return_statement *return_stat
     struct object *value;
     
     value = eval((struct node *) return_statement->return_value);
+    if (value->type == ERROR_OBJ)
+    {
+        return value;
+    }
     return (struct object *) return_value_alloc(value);    
 }
 
@@ -208,6 +248,10 @@ static struct object *eval_if_expression(struct if_expression *if_expression)
     struct object *object =  (struct object *) &null_object;
     
     condition = eval((struct node *) if_expression->condition);
+    if (condition->type == ERROR_OBJ)
+    {
+        return condition;
+    }
     if (is_truthy(condition))
     {
         object = eval((struct node *) if_expression->consequence);
