@@ -3,7 +3,8 @@
 
 #include "ast.h"
 #include "object.h"
+#include "env.h"
 
-struct object *eval(struct node *node);
+struct object *eval(struct node *node, struct environment *env);
 
 #endif

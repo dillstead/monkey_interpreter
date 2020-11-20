@@ -7,6 +7,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "evaluator.h"
+#include "env.h"
 
 static void print_parse_errors(struct parser *parser)
 {
@@ -21,11 +22,13 @@ static void print_parse_errors(struct parser *parser)
 
 void repl_start(void)
 {
+    struct environment *env;
     char input[1024];
 
     Fmt_register('T', Text_fmt);
     lexer_init();
     parser_init();
+    env = environment_alloc();
     while (true)
     {
         struct lexer *lexer;
@@ -51,7 +54,7 @@ void repl_start(void)
         }
         if (Seq_length(program->statements) > 0)
         {
-            object = eval((struct node *) program);
+            object = eval((struct node *) program, env);
             Fmt_print("%s\n", object_inspect(object));
             object_destroy(object);
         }
@@ -59,4 +62,5 @@ void repl_start(void)
         parser_destroy(parser);
         lexer_destroy(lexer);
     }
+    environment_destroy(env);
 }
