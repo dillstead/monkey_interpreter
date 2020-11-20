@@ -1,13 +1,13 @@
 #include "evaluator.h"
 
-static struct object *eval_program(struct program *program)
+static struct object *eval_program(struct program *program, struct environment *env)
 {
     struct object *object;
     struct return_value *return_value;
 
     for (int i = 0; i < Seq_length(program->statements); i++)
     {
-        object = eval((struct node *) Seq_get(program->statements, i));
+        object = eval((struct node *) Seq_get(program->statements, i), env);
         if (object->type == RETURN_VALUE)
         {
             return_value = (struct return_value *) object;
@@ -23,9 +23,10 @@ static struct object *eval_program(struct program *program)
     return object;
 }
 
-static struct object *eval_expression_statement(struct expression_statement *expression_statement)
+static struct object *eval_expression_statement(struct expression_statement *expression_statement,
+                                                struct environment *env)
 {
-    return eval((struct node *) expression_statement->expression);    
+    return eval((struct node *) expression_statement->expression, env);    
 }
 
 static struct object *eval_integer_literal(struct integer_literal *integer_literal)
@@ -71,12 +72,12 @@ static struct object *eval_minus_prefix_operator_expression(struct object *right
     return (struct object *) integer_object_alloc(-value);
 }
 
-static struct object *eval_prefix_expression(struct prefix_expression *prefix_expression)
+static struct object *eval_prefix_expression(struct prefix_expression *prefix_expression, struct environment *env)
 {
     struct object *right = NULL;
     struct object *object = NULL;
     
-    right = eval((struct node *) prefix_expression->right);
+    right = eval((struct node *) prefix_expression->right, env);
     if (right->type == ERROR_OBJ)
     {
         return right;
@@ -146,19 +147,19 @@ static struct object *eval_integer_infix_expression(struct object *left, struct 
     }
 }
 
-static struct object *eval_infix_expression(struct infix_expression *infix_expression)
+static struct object *eval_infix_expression(struct infix_expression *infix_expression, struct environment *env)
 {
     struct object *right = NULL;
     struct object *left = NULL;
     Text_T op = infix_expression->op;
     struct object *object = (struct object *) &null_object;
 
-    left = eval((struct node *) infix_expression->left);
+    left = eval((struct node *) infix_expression->left, env);
     if (left->type == ERROR_OBJ)
     {
         return left;
     }
-    right = eval((struct node *) infix_expression->right);
+    right = eval((struct node *) infix_expression->right, env);
     if (right->type == ERROR_OBJ)
     {
         object_destroy(left);
@@ -195,13 +196,13 @@ static struct object *eval_infix_expression(struct infix_expression *infix_expre
     return object;
 }
 
-static struct object *eval_block_statement(struct block_statement *block_statement)
+static struct object *eval_block_statement(struct block_statement *block_statement, struct environment *env)
 {
     struct object *object;
 
     for (int i = 0; i < Seq_length(block_statement->statements); i++)
     {
-        object = eval((struct node *) Seq_get(block_statement->statements, i));
+        object = eval((struct node *) Seq_get(block_statement->statements, i), env);
         if (object->type == RETURN_VALUE || object->type == ERROR_OBJ)
         {
             return object;
@@ -210,16 +211,42 @@ static struct object *eval_block_statement(struct block_statement *block_stateme
     return object;
 }
 
-static struct object *eval_return_statement(struct return_statement *return_statement)
+static struct object *eval_return_statement(struct return_statement *return_statement, struct environment *env)
 {
     struct object *value;
     
-    value = eval((struct node *) return_statement->return_value);
+    value = eval((struct node *) return_statement->return_value, env);
     if (value->type == ERROR_OBJ)
     {
         return value;
     }
     return (struct object *) return_value_alloc(value);    
+}
+
+static struct object *eval_let_statement(struct let_statement *let_statement, struct environment *env)
+{
+    struct object *value;
+    
+    value = eval((struct node *) let_statement->value, env);
+    if (value->type == ERROR_OBJ)
+    {
+        return value;
+    }
+    environment_set(env, let_statement->name->value, value);
+    return (struct object *) &null_object;
+}
+
+static struct object *eval_identifier(struct identifier *identifier, struct environment *env)
+{
+    struct object *value;
+    
+    value = environment_get(env, identifier->value);
+    if (value == NULL)
+    {
+        return (struct object *) error_object_alloc("identifier not found: %T", 
+                                                    &identifier->value);
+    }
+    return value;
 }
 
 static bool is_truthy(struct object *object)
@@ -242,43 +269,43 @@ static bool is_truthy(struct object *object)
     }
 }
 
-static struct object *eval_if_expression(struct if_expression *if_expression)
+static struct object *eval_if_expression(struct if_expression *if_expression, struct environment *env)
 {
     struct object *condition;
     struct object *object =  (struct object *) &null_object;
     
-    condition = eval((struct node *) if_expression->condition);
+    condition = eval((struct node *) if_expression->condition, env);
     if (condition->type == ERROR_OBJ)
     {
         return condition;
     }
     if (is_truthy(condition))
     {
-        object = eval((struct node *) if_expression->consequence);
+        object = eval((struct node *) if_expression->consequence, env);
     }
     else if (if_expression->alternative != NULL)
     {
-        object = eval((struct node *) if_expression->alternative);
+        object = eval((struct node *) if_expression->alternative, env);
     }
     object_destroy(condition);
     return object;
 }
     
-struct object *eval(struct node *node)
+struct object *eval(struct node *node, struct environment *env)
 {
     switch (node->type)
     {
     case PROGRAM:
     {
-        return eval_program((struct program *) node);
+        return eval_program((struct program *) node, env);
     }
     case BLOCK_STMT:
     {
-        return eval_block_statement((struct block_statement *) node);
+        return eval_block_statement((struct block_statement *) node, env);
     }
     case IF_EXPR:
     {
-        return eval_if_expression((struct if_expression *) node);
+        return eval_if_expression((struct if_expression *) node, env);
     }
     case INT_LITERAL_EXPR:
     {
@@ -290,24 +317,32 @@ struct object *eval(struct node *node)
     }
     case EXPR_STMT:
     {
-        return eval_expression_statement((struct expression_statement *) node);
+        return eval_expression_statement((struct expression_statement *) node, env);
     }
     case PREFIX_EXPR:
     {
-        return eval_prefix_expression((struct prefix_expression *) node);
+        return eval_prefix_expression((struct prefix_expression *) node, env);
     }
     case INFIX_EXPR:
     {
-        return eval_infix_expression((struct infix_expression *) node);
+        return eval_infix_expression((struct infix_expression *) node, env);
     }
     case RETURN_STMT:
     {
-        return eval_return_statement((struct return_statement *) node);
-    }        
+        return eval_return_statement((struct return_statement *) node, env);
+    }
+    case LET_STMT:
+    {
+        return eval_let_statement((struct let_statement *) node, env);
+    }
+    case IDENT_EXPR:
+    {
+        return eval_identifier((struct identifier *) node, env);
+    }
     default:
     {
-        return NULL;
+        return (struct object *) &null_object;
     }
     }
-    return NULL;
+    return (struct object *) &null_object;
 }

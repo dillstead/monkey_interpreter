@@ -12,9 +12,9 @@ const char *object_type_str [] =
     [NULL_OBJ] = "NULL"
 };
     
-struct boolean_object true_object = { BOOLEAN_OBJ, true, "true" };
-struct boolean_object false_object  = { BOOLEAN_OBJ, false, "false" };
-struct null_object null_object = { NULL_OBJ, "null" };
+struct boolean_object true_object = { BOOLEAN_OBJ, 1, true, "true" };
+struct boolean_object false_object  = { BOOLEAN_OBJ, 1, false, "false" };
+struct null_object null_object = { NULL_OBJ, 1, "null" };
 
 static void integer_object_destroy(struct integer_object *integer)
 {
@@ -62,8 +62,22 @@ enum object_type object_type(struct object *object)
     return object->type;
 }
 
+void object_addref(struct object *object)
+{
+    object->cnt++;
+}
+
+void object_delref(struct object *object)
+{
+    object_destroy(object);
+}
+
 void object_destroy(struct object *object)
 {
+    if (--object->cnt > 0)
+    {
+        return;
+    }
     switch (object->type)
     {
     case INTEGER_OBJ:
@@ -121,6 +135,7 @@ struct integer_object *integer_object_alloc(long long value)
     
     NEW0(integer);
     integer->type = INTEGER_OBJ;
+    integer->cnt = 1;
     integer->value = value;
     return integer;
 }
@@ -131,17 +146,28 @@ struct return_value *return_value_alloc(struct object *value)
     
     NEW0(return_value);
     return_value->type = RETURN_VALUE;
+    return_value->cnt = 1;
     return_value->value = value;
     return return_value;
 }
 
 struct boolean_object *boolean_object_alloc(bool value)
 {
-    return value ? &true_object : &false_object;
+    if (value)
+    {
+        true_object.cnt++;
+        return &true_object;
+    }
+    else
+    {
+        false_object.cnt++;
+        return &false_object;
+    }
 }
 
 struct null_object *null_object_alloc(void)
 {
+    null_object.cnt++;
     return &null_object;
 }
 
@@ -152,6 +178,7 @@ struct error_object *error_object_alloc(const char *value, ...)
     
     NEW0(error);
     error->type = ERROR_OBJ;
+    error->cnt = 1;
     va_start(box.ap, value);
     Fmt_vsfmt(error->value, sizeof error->value, value, &box);
     va_end(box.ap);

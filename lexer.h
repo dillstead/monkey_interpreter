@@ -1,8 +1,6 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include <text.h>
-
 struct lexer
 {
     int input_length;

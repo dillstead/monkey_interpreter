@@ -3,6 +3,7 @@
 
 #include "parser.h"
 #include "evaluator.h"
+#include "env.h"
 
 static struct object *test_eval(const char *input)
 {
@@ -10,11 +11,14 @@ static struct object *test_eval(const char *input)
     struct lexer *lexer = NULL;
     struct parser *parser = NULL;
     struct program *program = NULL;
+    struct environment *env = NULL;
 
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
-    object = eval((struct node *) program);
+    env = environment_alloc();
+    object = eval((struct node *) program, env);
+    environment_destroy(env);
     program_destroy(program);
     lexer_destroy(lexer);
     parser_destroy(parser);
@@ -328,6 +332,10 @@ static int test_error_handling(void)
               {
                   "if (10 > 1) { if (10 > 1) { return true + false; } return 1; }",
                   "unknown operator: BOOLEAN + BOOLEAN"
+              },
+              {
+                  "foobar",
+                  "identifier not found: foobar",
               }
           };
     struct object *object;
@@ -350,6 +358,44 @@ static int test_error_handling(void)
                       error_object->value, tests[i].expected);
             goto cleanup;
         }            
+        object_destroy(object);
+        object = NULL;
+    }
+    success = 0;
+
+cleanup:
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
+static int test_let_statements(void)
+{
+    struct test
+    {
+        const char *input;
+        long long expected;
+    } tests[] =
+          {
+              {"let a = 5; a;", 5},
+              {"let a = 5 * 5; a;", 25},
+              {"let a = 5; let b = a; b;", 5},
+              {"let a = 5; let b = a; let c = a + b + 5; c;", 15},
+          };
+    struct object *object;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
+    {
+        object = test_eval(tests[i].input);
+        if (test_integer_object(object, tests[i].expected) != 0)
+        {
+            goto cleanup;
+        }
         object_destroy(object);
         object = NULL;
     }
@@ -386,6 +432,10 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_error_handling() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_let_statements() != 0)
     {
         return EXIT_FAILURE;
     }
