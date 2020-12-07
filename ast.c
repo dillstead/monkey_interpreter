@@ -301,8 +301,11 @@ char *function_literal_to_string(struct function_literal *function_literal)
             str1 = str;
         }
     }
+    str = Str_cat(str1, 1, 0, ")", 1, 0);
+    FREE(str1);
+    str1 = str;
     str2 = block_statement_to_string(function_literal->body);
-    str = Str_catv(str1, 1, 0, ")", 1, 0, str2, 1, 0, NULL);
+    str = Str_cat(str1, 1, 0, str2, 1, 0);
     FREE(str2);
     FREE(str1);
     return str;
@@ -625,6 +628,7 @@ struct let_statement *let_statement_alloc(struct token token)
 
     NEW0(let_statement);
     let_statement->type = LET_STMT;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     let_statement->token = token;
     return let_statement;
 }
@@ -635,6 +639,7 @@ struct return_statement *return_statement_alloc(struct token token)
 
     NEW0(return_statement);
     return_statement->type = RETURN_STMT;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     return_statement->token = token;
     return return_statement;
 }
@@ -645,6 +650,7 @@ struct identifier *identifier_alloc(struct token token)
 
     NEW0(identifier);
     identifier->type = IDENT_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     identifier->token = token;
     return identifier;
 }
@@ -655,6 +661,7 @@ struct integer_literal *integer_literal_alloc(struct token token)
 
     NEW0(integer_literal);
     integer_literal->type = INT_LITERAL_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     integer_literal->token = token;
     return integer_literal;
 }
@@ -665,9 +672,16 @@ struct function_literal *function_literal_alloc(struct token token)
 
     NEW0(function_literal);
     function_literal->type = FUNC_LITERAL_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     function_literal->token = token;
+    function_literal->cnt = 1;
     function_literal->parameters = Seq_new(10);
     return function_literal;
+}
+
+void function_literal_addref(struct function_literal *function_literal)
+{
+    function_literal->cnt++;
 }
 
 struct boolean *boolean_alloc(struct token token, bool value)
@@ -676,6 +690,7 @@ struct boolean *boolean_alloc(struct token token, bool value)
 
     NEW0(boolean);
     boolean->type = BOOL_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     boolean->token = token;
     boolean->value = value;
     return boolean;
@@ -687,6 +702,7 @@ struct expression_statement *expression_statement_alloc(struct token token)
 
     NEW0(expression_statement);
     expression_statement->type = EXPR_STMT;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     expression_statement->token = token;
     return expression_statement;
 }
@@ -697,6 +713,7 @@ struct block_statement *block_statement_alloc(struct token token)
 
     NEW0(block_statement);
     block_statement->type = BLOCK_STMT;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     block_statement->token = token;
     block_statement->statements = Seq_new(100);
     return block_statement;
@@ -708,6 +725,7 @@ struct prefix_expression *prefix_expression_alloc(struct token token)
 
     NEW0(prefix_expression);
     prefix_expression->type = PREFIX_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     prefix_expression->token = token;
     prefix_expression->op = token.literal;
     return prefix_expression;
@@ -719,6 +737,7 @@ struct infix_expression *infix_expression_alloc(struct token token)
 
     NEW0(infix_expression);
     infix_expression->type = INFIX_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     infix_expression->token = token;
     infix_expression->op = token.literal;
     return infix_expression;
@@ -730,6 +749,7 @@ struct if_expression *if_expression_alloc(struct token token)
 
     NEW0(if_expression);
     if_expression->type = IF_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     if_expression->token = token;
     return if_expression;
 }
@@ -740,44 +760,58 @@ struct call_expression *call_expression_alloc(struct token token)
 
     NEW0(call_expression);
     call_expression->type = CALL_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     call_expression->token = token;
     return call_expression;
 }
 
 void let_statement_destroy(struct let_statement *let_statement)
 {
+    char *c;
+    
     if (let_statement == NULL)
     {
         return;
     }
     identifier_destroy(let_statement->name);
     expression_destroy(let_statement->value);
+    c = (char *) let_statement->token.literal.str;
+    FREE(c);
     FREE(let_statement);
 }
 
 void return_statement_destroy(struct return_statement *return_statement)
 {
+    char *c;
+        
     if (return_statement == NULL)
     {
         return;
     }
     expression_destroy(return_statement->return_value);
+    c = (char *) return_statement->token.literal.str;
+    FREE(c);
     FREE(return_statement);
 }
 
 void expression_statement_destroy(struct expression_statement *expression_statement)
 {
+    char *c;
+    
     if (expression_statement == NULL)
     {
         return;
     }
     expression_destroy(expression_statement->expression);
+    c = (char *) expression_statement->token.literal.str;
+    FREE(c);
     FREE(expression_statement);
 }
 
 void block_statement_destroy(struct block_statement *block_statement)
 {
     struct statement *statement;
+    char *c;
 
     if (block_statement == NULL)
     {
@@ -789,32 +823,44 @@ void block_statement_destroy(struct block_statement *block_statement)
         statement_destroy(statement);
     }
     Seq_free(&block_statement->statements);
+    c = (char *) block_statement->token.literal.str;
+    FREE(c);
     FREE(block_statement);
 }
 
 void prefix_expression_destroy(struct prefix_expression *prefix_expression)
 {
+    char *c;
+    
     if (prefix_expression == NULL)
     {
         return;
     }
     expression_destroy(prefix_expression->right);
+    c = (char *) prefix_expression->token.literal.str;
+    FREE(c);
     FREE(prefix_expression);
 }
 
 void infix_expression_destroy(struct infix_expression *infix_expression)
 {
+    char *c;
+    
     if (infix_expression == NULL)
     {
         return;
     }
     expression_destroy(infix_expression->left);
     expression_destroy(infix_expression->right);
+    c = (char *) infix_expression->token.literal.str;
+    FREE(c);
     FREE(infix_expression);
 }
 
 void if_expression_destroy(struct if_expression *if_expression)
 {
+    char *c;
+    
     if (if_expression == NULL)
     {
         return;
@@ -822,12 +868,15 @@ void if_expression_destroy(struct if_expression *if_expression)
     expression_destroy(if_expression->condition);
     block_statement_destroy(if_expression->consequence);
     block_statement_destroy(if_expression->alternative);
+    c = (char *) if_expression->token.literal.str;
+    FREE(c);
     FREE(if_expression);
 }
 
 void call_expression_destroy(struct call_expression *call_expression)
 {
     struct expression *expression;
+    char *c;
         
     if (call_expression == NULL)
     {
@@ -843,24 +892,41 @@ void call_expression_destroy(struct call_expression *call_expression)
         }
         Seq_free(&call_expression->arguments);
     }
+    c = (char *) call_expression->token.literal.str;
+    FREE(c);
     FREE(call_expression);
 }
 
 void identifier_destroy(struct identifier *identifier)
 {
+    char *c;
+
+    c = (char *) identifier->value.str;
+    FREE(c);
+    c = (char *) identifier->token.literal.str;
+    FREE(c);
     FREE(identifier);
 }
 
 void integer_literal_destroy(struct integer_literal *integer_literal)
 {
+    char *c;
+    
+    c = (char *) integer_literal->token.literal.str;
+    FREE(c);
     FREE(integer_literal);
 }
 
 void function_literal_destroy(struct function_literal *function_literal)
 {
     struct identifier *identifier;
+    char *c;
 
     if (function_literal == NULL)
+    {
+        return;
+    }
+    if (--function_literal->cnt > 0)
     {
         return;
     }
@@ -874,10 +940,16 @@ void function_literal_destroy(struct function_literal *function_literal)
         Seq_free(&function_literal->parameters);
     }
     block_statement_destroy(function_literal->body);
+    c = (char *) function_literal->token.literal.str;
+    FREE(c);
     FREE(function_literal);
 }
 
 void boolean_destroy(struct boolean *boolean)
 {
+    char *c;
+    
+    c = (char *) boolean->token.literal.str;
+    FREE(c);
     FREE(boolean);
 }

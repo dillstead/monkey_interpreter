@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <mem.h>
+#include <str.h>
 
 #include "object.h"
+#include "ast.h"
 
 const char *object_type_str [] =
 {
@@ -23,13 +25,25 @@ static void integer_object_destroy(struct integer_object *integer)
 
 static char *integer_object_inspect(struct integer_object *integer)
 {
-    snprintf(integer->inspect, sizeof integer->inspect, "%lld", integer->value);
     return integer->inspect;
 }
 
 static char *boolean_object_inspect(struct boolean_object *boolean)
 {
     return boolean->inspect;
+}
+
+static void function_object_destroy(struct function_object *function)
+{
+    function_literal_destroy(function->value);
+    environment_destroy(function->env);
+    FREE(function->inspect);
+    FREE(function);
+}
+
+static char *function_object_inspect(struct function_object *function)
+{
+    return function->inspect;
 }
 
 static void return_value_destroy(struct return_value *return_value)
@@ -67,11 +81,6 @@ void object_addref(struct object *object)
     object->cnt++;
 }
 
-void object_delref(struct object *object)
-{
-    object_destroy(object);
-}
-
 void object_destroy(struct object *object)
 {
     if (--object->cnt > 0)
@@ -83,6 +92,11 @@ void object_destroy(struct object *object)
     case INTEGER_OBJ:
     {
         integer_object_destroy((struct integer_object *) object);
+        break;
+    }
+    case FUNC_OBJ:
+    {
+        function_object_destroy((struct function_object *) object);
         break;
     }
     case RETURN_VALUE:
@@ -113,6 +127,10 @@ char *object_inspect(struct object *object)
     {
         return boolean_object_inspect((struct boolean_object *) object);
     }
+    case FUNC_OBJ:
+    {
+        return function_object_inspect((struct function_object *) object);
+    }
     case RETURN_VALUE:
     {
         return return_value_inspect((struct return_value *) object);
@@ -137,7 +155,59 @@ struct integer_object *integer_object_alloc(long long value)
     integer->type = INTEGER_OBJ;
     integer->cnt = 1;
     integer->value = value;
+    snprintf(integer->inspect, sizeof integer->inspect, "%lld", integer->value);
     return integer;
+}
+
+struct function_object *function_object_alloc(struct function_literal *value,
+                                              struct environment *env)
+{
+    struct function_object *function;
+    struct identifier *identifier;
+    char *str;
+    char *str1;
+    char *str2;
+
+    NEW0(function);
+    function->type = FUNC_OBJ;
+    function->cnt = 1;
+    function_literal_addref(value);
+    function->value = value;
+    environment_addref(env);
+    function->env = env;
+    str = ALLOC(sizeof "fn(");
+    Fmt_sfmt(str, sizeof "fn(", "fn(");
+    str1 = str;
+    if (Seq_length(function->value->parameters) > 0)
+    {
+        identifier = (struct identifier *) Seq_get(function->value->parameters, 0);
+        str2 = identifier_to_string(identifier);
+        str = Str_cat(str, 1, 0, str2, 1, 0);
+        FREE(str2);
+        FREE(str1);
+        str1 = str;
+        for (int i = 1; i < Seq_length(function->value->parameters); i++)
+        {
+            identifier = (struct identifier *) Seq_get(function->value->parameters, i);
+            str2 = identifier_to_string(identifier);
+            str = Str_catv(str, 1, 0, ", ", 1, 0, str2, 1, 0, NULL);
+            FREE(str2);
+            FREE(str1);
+            str1 = str;
+        }
+    }
+    str = Str_cat(str1, 1, 0, ") {\n", 1, 0);
+    FREE(str1);
+    str1 = str;
+    str2 = block_statement_to_string(function->value->body);
+    str = Str_cat(str1, 1, 0, str2, 1, 0);
+    FREE(str2);
+    FREE(str1);
+    str1 = str;
+    str = Str_cat(str1, 1, 0, "\n", 1, 0);
+    FREE(str1);
+    function->inspect = str;
+    return function;
 }
 
 struct return_value *return_value_alloc(struct object *value)

@@ -124,7 +124,8 @@ static struct identifier *parse_identifier(struct parser *parser)
     struct identifier *identifier;
     
     identifier = identifier_alloc(parser->cur_token);
-    identifier->value = parser->cur_token.literal;
+    identifier->value = Text_box(Text_get(NULL, 0, parser->cur_token.literal),
+                                 parser->cur_token.literal.len);
     return identifier;
 }
 

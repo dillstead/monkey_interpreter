@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <mem.h>
 
 #include "parser.h"
 #include "evaluator.h"
@@ -350,6 +351,7 @@ static int test_error_handling(void)
         if (object->type != ERROR_OBJ)
         {
             Fmt_print("object is not error got=%d\n", object->type);
+            goto cleanup;
         }
         error_object = (struct error_object *) object;
         if (strcmp(error_object->value, tests[i].expected) != 0)
@@ -409,6 +411,99 @@ cleanup:
     return success;
 }
 
+static int test_function_object(void)
+{
+    const char *input = "fn(x) { x + 2; };";
+    const char *expected_body = "(x + 2)";
+    struct object *object;
+    struct function_object *function_object;
+    char *str = NULL;
+    int success = -1;
+    
+
+    lexer_init();
+    parser_init();
+    object = test_eval(input);
+    if (object->type != FUNC_OBJ)
+    {
+        Fmt_print("object is not function got=%d\n", object->type);
+        goto cleanup;
+    }
+    function_object = (struct function_object *) object;
+    if (Seq_length(function_object->value->parameters) != 1)
+    {
+        Fmt_print("function has wrong parameters. want 1 got=%d\n",
+                  Seq_length(function_object->value->parameters));
+        goto cleanup;
+    }
+    str = identifier_to_string((struct identifier *) Seq_get(function_object->value->parameters, 0));
+    if (strcmp(str, "x") != 0)
+    {
+        Fmt_print("parameter is not 'x'. got %s\n", str);
+        goto cleanup;
+    }
+    FREE(str);
+    str = block_statement_to_string(function_object->value->body);
+    if (strcmp(str, expected_body) != 0)
+    {
+        Fmt_print("body is not %s. got %s\n", expected_body, str);
+        goto cleanup;
+    }
+    FREE(str);
+    success = 0;
+       
+cleanup:
+    if (str != NULL)
+    {
+        FREE(str);
+    }
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
+static int test_function_application(void)
+{
+    struct test
+    {
+        const char *input;
+        long long expected;
+    } tests[] =
+          {
+              {"let identity = fn(x) { x; }; identity(5);", 5},
+              {"let identity = fn(x) { return x; }; identity(5);", 5},
+              {"let double = fn(x) { x * 2; }; double(5);", 10},
+              {"let add = fn(x, y) { x + y; }; add(5, 5);", 10},
+              {"let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20},
+              {"fn(x) { x; }(5)", 5},
+          };
+    struct object *object;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
+    {
+        object = test_eval(tests[i].input);
+        if (test_integer_object(object, tests[i].expected) != 0)
+        {
+            goto cleanup;
+        }
+        object_destroy(object);
+        object = NULL;
+    }
+    success = 0;
+
+cleanup:
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
 int main(void)
 {
     if (test_eval_integer_expression() != 0)
@@ -436,6 +531,14 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_let_statements() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_function_object() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_function_application() != 0)
     {
         return EXIT_FAILURE;
     }
