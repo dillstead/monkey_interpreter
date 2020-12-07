@@ -19,6 +19,10 @@ static struct object *eval_program(struct program *program, struct environment *
         {
             return object;
         }
+        else if (i < Seq_length(program->statements) - 1)
+        {
+            object_destroy(object);
+        }
     }
     return object;
 }
@@ -207,6 +211,10 @@ static struct object *eval_block_statement(struct block_statement *block_stateme
         {
             return object;
         }
+        if (i < Seq_length(block_statement->statements) - 1)
+        {
+            object_destroy(object);
+        }
     }
     return object;
 }
@@ -290,6 +298,117 @@ static struct object *eval_if_expression(struct if_expression *if_expression, st
     object_destroy(condition);
     return object;
 }
+
+static struct object *eval_function_literal(struct function_literal *function_literal,
+                                            struct environment *env)
+{
+    return (struct object *) function_object_alloc(function_literal, env);
+}
+
+Seq_T eval_expressions(Seq_T args, struct environment *env)
+{
+    struct object *evaluated;
+    struct object *removed;
+    Seq_T result;
+
+    result = Seq_new(Seq_length(args));
+    for (int i = 0; i < Seq_length(args); i++)
+    {
+        evaluated = eval((struct node *) Seq_get(args, i), env);
+        if (evaluated->type == ERROR_OBJ)
+        {
+            while (Seq_length(result) > 0)
+            {
+                removed = (struct object *) Seq_remlo(result);
+                object_destroy(removed);
+            }
+            Seq_addhi(result, evaluated);
+            return result;
+        }
+        Seq_addhi(result, evaluated);
+    }
+    return result;
+}
+
+static struct environment *extend_function_env(struct function_object *function, Seq_T args)
+{
+    struct environment *env;
+    struct identifier *param;
+
+    env = enclosed_environment_alloc(function->env);
+    for (int i = 0; i < Seq_length(function->value->parameters); i++)
+    {
+        param = (struct identifier *) Seq_get(function->value->parameters, i);
+        environment_set(env, param->value, (struct object *) Seq_get(args, i));
+    }
+    return env;
+}
+
+struct object *unwrap_return_value(struct object *object)
+{
+    struct return_value *return_value;
+    
+    if (object->type == RETURN_VALUE)
+    {
+        return_value = (struct return_value *) object;
+        object = return_value->value;
+        object_destroy((struct object *) return_value);
+        return object;
+    }
+    return object;
+}
+
+static struct object *apply_function(struct object *object, Seq_T args)
+{
+    struct environment *env;
+    struct function_object *function;
+    struct object *evaluated;
+    
+    if (object->type != FUNC_OBJ)
+    {
+        return (struct object *) error_object_alloc("not a function: %s", 
+                                                    object_type_str[object->type]);
+    }
+    function = (struct function_object *) object;
+    env = extend_function_env(function, args);
+    evaluated = eval((struct node *) function->value->body, env);
+    environment_destroy(env);
+    return unwrap_return_value(evaluated);
+}
+
+static struct object *eval_call_expression(struct call_expression *call_expression,
+                                           struct environment *env)
+{
+    struct object *object;
+    struct object *arg;
+    struct object *evaluated;
+    Seq_T args;
+    
+    object = eval((struct node *) call_expression->function, env);
+    if (object->type == ERROR_OBJ)
+    {
+        return object;
+    }
+    args = eval_expressions(call_expression->arguments, env);
+    if (Seq_length(args) == 1)
+    {
+        arg = (struct object *) Seq_get(args, 0);
+        if (arg->type == ERROR_OBJ)
+        {
+            Seq_free(&args);
+            object_destroy(object);
+            return arg;
+        }
+    }
+    evaluated = apply_function(object, args);
+    for (int i = 0; i < Seq_length(args); i++)
+    {
+        object_destroy((struct object *) Seq_get(args, i));
+    }
+    Seq_free(&args);
+    object_destroy(object);
+    return evaluated;
+}
     
 struct object *eval(struct node *node, struct environment *env)
 {
@@ -338,6 +457,14 @@ struct object *eval(struct node *node, struct environment *env)
     case IDENT_EXPR:
     {
         return eval_identifier((struct identifier *) node, env);
+    }
+    case FUNC_LITERAL_EXPR:
+    {
+        return eval_function_literal((struct function_literal *) node, env);
+    }
+    case CALL_EXPR:
+    {
+        return eval_call_expression((struct call_expression *) node, env);
     }
     default:
     {

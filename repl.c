@@ -55,7 +55,10 @@ void repl_start(void)
         if (Seq_length(program->statements) > 0)
         {
             object = eval((struct node *) program, env);
-            Fmt_print("%s\n", object_inspect(object));
+            if (object != (struct object *) &null_object)
+            {
+                Fmt_print("%s\n", object_inspect(object));
+            }
             object_destroy(object);
         }
         program_destroy(program);

@@ -4,10 +4,13 @@
 #include <stdbool.h>
 #include <text.h>
 
+#include "env.h"
+
 enum object_type
 {
     INTEGER_OBJ,
     BOOLEAN_OBJ,
+    FUNC_OBJ,
     RETURN_VALUE,
     NULL_OBJ,
     ERROR_OBJ
@@ -37,6 +40,15 @@ struct boolean_object
     char *inspect;
 };
 
+struct function_object
+{
+    enum object_type type;
+    unsigned int cnt;
+    struct environment *env;
+    struct function_literal *value;
+    char *inspect;
+};
+
 struct return_value
 {
     enum object_type type;
@@ -63,11 +75,12 @@ extern struct boolean_object false_object;
 extern struct null_object null_object;
 
 void object_addref(struct object *object);
-void object_delref(struct object *object);
 void object_destroy(struct object *object);
 char *object_inspect(struct object *object);
 struct integer_object *integer_object_alloc(long long value);
 struct boolean_object *boolean_object_alloc(bool value);
+struct function_object *function_object_alloc(struct function_literal *value,
+                                              struct environment *env);
 struct return_value *return_value_alloc(struct object *value);
 struct null_object *null_object_alloc(void);
 struct error_object *error_object_alloc(const char *value, ...);

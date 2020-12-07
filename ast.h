@@ -70,6 +70,7 @@ struct function_literal
 {
     enum node_type type;
     struct token token;
+    unsigned int cnt;
     Seq_T parameters;
     struct block_statement *body;
 };
@@ -171,6 +172,7 @@ struct program *program_alloc(void);
 struct identifier *identifier_alloc(struct token token);
 struct integer_literal *integer_literal_alloc(struct token token);
 struct function_literal *function_literal_alloc(struct token token);
+void function_literal_addref(struct function_literal *function_literal);
 struct boolean *boolean_alloc(struct token token, bool value);
 struct return_statement *return_statement_alloc(struct token token);
 struct let_statement *let_statement_alloc(struct token token);
