@@ -11,7 +11,11 @@ const char *object_type_str [] =
 {
     [INTEGER_OBJ] = "INTEGER",
     [BOOLEAN_OBJ] = "BOOLEAN",
-    [NULL_OBJ] = "NULL"
+    [STRING_OBJ] = "STRING",
+    [FUNC_OBJ] = "FUNC",
+    [RETURN_VALUE] = "RETURN VALUE",
+    [NULL_OBJ] = "NULL",
+    [ERROR_OBJ] = "ERROR"
 };
     
 struct boolean_object true_object = { BOOLEAN_OBJ, 1, true, "true" };
@@ -31,6 +35,17 @@ static char *integer_object_inspect(struct integer_object *integer)
 static char *boolean_object_inspect(struct boolean_object *boolean)
 {
     return boolean->inspect;
+}
+
+static void string_object_destroy(struct string_object *string)
+{
+    FREE(string->value);
+    FREE(string);
+}
+
+static char *string_object_inspect(struct string_object *string)
+{
+    return string->value;
 }
 
 static void function_object_destroy(struct function_object *function)
@@ -94,6 +109,11 @@ void object_destroy(struct object *object)
         integer_object_destroy((struct integer_object *) object);
         break;
     }
+    case STRING_OBJ:
+    {
+        string_object_destroy((struct string_object *) object);
+        break;
+    }
     case FUNC_OBJ:
     {
         function_object_destroy((struct function_object *) object);
@@ -127,6 +147,10 @@ char *object_inspect(struct object *object)
     {
         return boolean_object_inspect((struct boolean_object *) object);
     }
+    case STRING_OBJ:
+    {
+        return string_object_inspect((struct string_object *) object);
+    }
     case FUNC_OBJ:
     {
         return function_object_inspect((struct function_object *) object);
@@ -157,6 +181,17 @@ struct integer_object *integer_object_alloc(long long value)
     integer->value = value;
     snprintf(integer->inspect, sizeof integer->inspect, "%lld", integer->value);
     return integer;
+}
+
+struct string_object *string_object_alloc(Text_T value)
+{
+    struct string_object *string;
+    
+    NEW0(string);
+    string->type = STRING_OBJ;
+    string->cnt = 1;
+    string->value = Text_get(NULL, 0, value);
+    return string;
 }
 
 struct function_object *function_object_alloc(struct function_literal *value,

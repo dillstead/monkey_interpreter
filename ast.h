@@ -13,6 +13,7 @@ enum node_type
     EXPR_STMT,
     BLOCK_STMT,
     IDENT_EXPR,
+    STRING_LITERAL_EXPR,
     INT_LITERAL_EXPR,
     FUNC_LITERAL_EXPR,
     PREFIX_EXPR,
@@ -46,6 +47,13 @@ struct program
 };
 
 struct identifier
+{
+    enum node_type type;
+    struct token token;
+    Text_T value;
+};
+
+struct string_literal
 {
     enum node_type type;
     struct token token;
@@ -142,6 +150,7 @@ Text_T expression_token_literal(struct expression *expression);
 Text_T statement_token_literal(struct statement *statement);
 Text_T program_token_literal(struct program *program);
 Text_T identifier_token_literal(struct identifier *identifier);
+Text_T string_literal_token_literal(struct string_literal *string_literal);
 Text_T integer_literal_token_literal(struct integer_literal *integer_literal);
 Text_T function_literal_token_literal(struct function_literal *function_literal);
 Text_T boolean_token_literal(struct boolean *boolean);
@@ -157,6 +166,7 @@ char *expression_to_string(struct expression *expression);
 char *statement_to_string(struct statement *statement);
 char *program_to_string(struct program *program);
 char *identifier_to_string(struct identifier *identifier);
+char *string_literal_to_string(struct string_literal *string_literal);
 char *integer_literal_to_string(struct integer_literal *integer_literal);
 char *function_literal_to_string(struct function_literal *function_literal);
 char *boolean_to_string(struct boolean *boolean);
@@ -170,6 +180,7 @@ char *if_expression_to_string(struct if_expression *if_expression);
 char *call_expression_to_string(struct call_expression *call_expression);
 struct program *program_alloc(void);
 struct identifier *identifier_alloc(struct token token);
+struct string_literal *string_literal_alloc(struct token token);
 struct integer_literal *integer_literal_alloc(struct token token);
 struct function_literal *function_literal_alloc(struct token token);
 void function_literal_addref(struct function_literal *function_literal);
@@ -186,6 +197,7 @@ void expression_destroy(struct expression *expression);
 void statement_destroy(struct statement *statement);
 void program_destroy(struct program *program);
 void identifier_destroy(struct identifier *identifier);
+void string_literal_destroy(struct string_literal *string_literal);
 void integer_literal_destroy(struct integer_literal *integer_literal);
 void function_literal_destroy(struct function_literal *function_literal);
 void boolean_destroy(struct boolean *boolean);

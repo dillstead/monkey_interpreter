@@ -167,6 +167,70 @@ cleanup:
     return success;
 }
 
+static int test_string_literal_expression(void)
+{
+    const char *input = "\"hello world\";";
+    Text_T expected = { sizeof "hello world" - 1, "hello world"};
+    struct lexer *lexer = NULL;
+    struct parser *parser = NULL;
+    struct program *program = NULL;
+    struct statement *statement = NULL;
+    struct expression_statement *expression_statement = NULL;
+    struct string_literal *string_literal = NULL;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    lexer = lexer_alloc(input);
+    parser = parser_alloc(lexer);
+    program = parser_parse_program(parser);
+    if (program == NULL)
+    {
+        Fmt_print("parser_parse_program return NULL\n");
+        goto cleanup;
+    }
+    if (check_parse_errors(parser) != 0)
+    {
+        goto cleanup;
+    }
+    if (Seq_length(program->statements) != 1)
+    {
+        Fmt_print("program statements does not contain 1 statement, got=%d\n",
+                  Seq_length(program->statements));
+        goto cleanup;
+    }
+    statement = (struct statement *) Seq_get(program->statements, 0);
+    if (statement->type != EXPR_STMT)
+    {
+        Fmt_print("not expression_statement got=%d\n", statement->type);
+        goto cleanup;
+    }
+    expression_statement = (struct expression_statement *) statement;
+    if (expression_statement->expression->type != STRING_LITERAL_EXPR)
+    {
+        Fmt_print("not string_literal got=%d\n",
+                  expression_statement->expression->type);
+        goto cleanup;
+    }
+    string_literal = (struct string_literal *) expression_statement->expression;
+    if (Text_cmp(string_literal->value, expected) != 0)
+    {
+        Fmt_print("string_literal->value not '%T', got=%T\n", &expected, &string_literal->value);
+        goto cleanup;
+        return -1;
+    }
+    success = 0;
+
+cleanup:
+    if (program != NULL)
+    {
+        program_destroy(program);
+    }
+    lexer_destroy(lexer);
+    parser_destroy(parser);
+    return success;
+}
+
 static int test_integer_literal_expression(void)
 {
     const char *input = "5;";
@@ -1386,6 +1450,10 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_identifier_expression() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_string_literal_expression() != 0)
     {
         return EXIT_FAILURE;
     }

@@ -129,6 +129,16 @@ static struct identifier *parse_identifier(struct parser *parser)
     return identifier;
 }
 
+static struct string_literal *parse_string_literal(struct parser *parser)
+{
+    struct string_literal *string_literal;
+    
+    string_literal = string_literal_alloc(parser->cur_token);
+    string_literal->value = Text_box(Text_get(NULL, 0, parser->cur_token.literal),
+                                     parser->cur_token.literal.len);
+    return string_literal;
+}
+
 static struct integer_literal *parse_integer_literal(struct parser *parser)
 {
     struct integer_literal *integer_literal;
@@ -523,6 +533,7 @@ void parser_init(void)
     } type_prefixes[] =
       {
           {IDENT, {(struct expression *(*)(struct parser *)) parse_identifier}},
+          {STRING, {(struct expression *(*)(struct parser *)) parse_string_literal}},
           {INT, {(struct expression *(*)(struct parser *)) parse_integer_literal}},
           {TRUE, {(struct expression *(*)(struct parser *)) parse_boolean}},
           {FALSE, {(struct expression *(*)(struct parser *)) parse_boolean}},

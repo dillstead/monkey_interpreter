@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mem.h>
+#include <str.h>
 
 #include "parser.h"
 #include "evaluator.h"
@@ -32,7 +33,7 @@ static int test_integer_object(struct object *object, long long expected)
     
     if (object->type != INTEGER_OBJ)
     {
-        Fmt_print("object is not integer got=%d\n", object->type);
+        Fmt_print("object is not integer got=%d\n", object_type_str[object->type]);
         return -1;
     }
     integer_object = (struct integer_object *) object;
@@ -51,7 +52,7 @@ static int test_boolean_object(struct object *object, bool expected)
     
     if (object->type != BOOLEAN_OBJ)
     {
-        Fmt_print("object is not boolean got=%d\n", object->type);
+        Fmt_print("object is not boolean got=%d\n", object_type_str[object->type]);
         return -1;
     }
     boolean_object = (struct boolean_object *) object;
@@ -68,7 +69,7 @@ static int test_null_object(struct object *object)
 {
     if (object != (struct object *) &null_object)
     {
-        Fmt_print("object is not NULL. got=%d (%+v)", object->type);
+        Fmt_print("object is not NULL. got=%d (%+v)", object_type_str[object->type]);
         return -1;
     }
     return 0;
@@ -158,6 +159,76 @@ static int test_eval_boolean_expression(void)
         object_destroy(object);
         object = NULL;
     }
+    success = 0;
+
+cleanup:
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
+static int test_eval_string_expression(void)
+{
+    const char *input = "\"Hello World!\"";
+    char *expected = "Hello World!";
+    struct object *object;
+    struct string_object *string_object;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    object = test_eval(input);
+    if (object->type != STRING_OBJ)
+    {
+        Fmt_print("object is not string got=%d\n", object_type_str[object->type]);
+        goto cleanup;
+    }
+    string_object = (struct string_object *) object;
+    if (Str_cmp(string_object->value, 1, 0, expected, 1, 0) != 0)
+    {
+        Fmt_print("object has wrong value got=%s, want=%s\n",
+                  string_object->value, expected);
+        goto cleanup;
+    }
+    object_destroy(object);
+    object = NULL;
+    success = 0;
+
+cleanup:
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
+static int test_string_concatentation(void)
+{
+    const char *input = "\"Hello\" + \" \" + \"World!\"";
+    char *expected = "Hello World!";
+    struct object *object;
+    struct string_object *string_object;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    object = test_eval(input);
+    if (object->type != STRING_OBJ)
+    {
+        Fmt_print("object is not string got=%d\n", object_type_str[object->type]);
+        goto cleanup;
+    }
+    string_object = (struct string_object *) object;
+    if (Str_cmp(string_object->value, 1, 0, expected, 1, 0) != 0)
+    {
+        Fmt_print("object has wrong value got=%s, want=%s\n",
+                  string_object->value, expected);
+        goto cleanup;
+    }
+    object_destroy(object);
+    object = NULL;
     success = 0;
 
 cleanup:
@@ -336,7 +407,11 @@ static int test_error_handling(void)
               },
               {
                   "foobar",
-                  "identifier not found: foobar",
+                  "identifier not found: foobar"
+              },
+              {
+                  "\"Hello\" - \"World\"",
+                  "unknown operator: STRING - STRING"
               }
           };
     struct object *object;
@@ -350,7 +425,7 @@ static int test_error_handling(void)
         object = test_eval(tests[i].input);
         if (object->type != ERROR_OBJ)
         {
-            Fmt_print("object is not error got=%d\n", object->type);
+            Fmt_print("object is not error got=%d\n", object_type_str[object->type]);
             goto cleanup;
         }
         error_object = (struct error_object *) object;
@@ -426,7 +501,7 @@ static int test_function_object(void)
     object = test_eval(input);
     if (object->type != FUNC_OBJ)
     {
-        Fmt_print("object is not function got=%d\n", object->type);
+        Fmt_print("object is not function got=%d\n", object_type_str[object->type]);
         goto cleanup;
     }
     function_object = (struct function_object *) object;
@@ -511,6 +586,14 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_eval_boolean_expression() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_eval_string_expression() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_string_concatentation() != 0)
     {
         return EXIT_FAILURE;
     }
