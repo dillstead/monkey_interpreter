@@ -14,6 +14,10 @@ Text_T expression_token_literal(struct expression *expression)
     {
         return identifier_token_literal((struct identifier *) expression);
     }
+    case STRING_LITERAL_EXPR:
+    {
+        return string_literal_token_literal((struct string_literal *) expression);
+    }
     case INT_LITERAL_EXPR:
     {
         return integer_literal_token_literal((struct integer_literal *) expression);
@@ -95,6 +99,11 @@ Text_T identifier_token_literal(struct identifier *identifier)
     return identifier->token.literal;
 }
 
+Text_T string_literal_token_literal(struct string_literal *string_literal)
+{
+    return string_literal->token.literal;
+}
+
 Text_T integer_literal_token_literal(struct integer_literal *integer_literal)
 {
     return integer_literal->token.literal;
@@ -158,6 +167,10 @@ char *expression_to_string(struct expression *expression)
     case IDENT_EXPR:
     {
         return identifier_to_string((struct identifier *) expression);
+    }
+    case STRING_LITERAL_EXPR:
+    {
+        return string_literal_to_string((struct string_literal *) expression);
     }
     case INT_LITERAL_EXPR:
     {
@@ -258,6 +271,17 @@ char *identifier_to_string(struct identifier *identifier)
     len = identifier->token.literal.len + 1;
     str = ALLOC(len);
     Fmt_sfmt(str, len, "%T", &identifier->token.literal);
+    return str;
+}
+
+char *string_literal_to_string(struct string_literal *string_literal)
+{
+    int len;
+    char *str;
+
+    len = string_literal->token.literal.len + 1;
+    str = ALLOC(len);
+    Fmt_sfmt(str, len, "%T", &string_literal->token.literal);
     return str;
 }
 
@@ -522,6 +546,11 @@ void expression_destroy(struct expression *expression)
         identifier_destroy((struct identifier *) expression);
         break;
     }
+    case STRING_LITERAL_EXPR:
+    {
+        string_literal_destroy((struct string_literal *) expression);
+        break;
+    }
     case INT_LITERAL_EXPR:
     {
         integer_literal_destroy((struct integer_literal *) expression);
@@ -653,6 +682,17 @@ struct identifier *identifier_alloc(struct token token)
     token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     identifier->token = token;
     return identifier;
+}
+
+struct string_literal *string_literal_alloc(struct token token)
+{
+    struct string_literal *string_literal;
+
+    NEW0(string_literal);
+    string_literal->type = STRING_LITERAL_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
+    string_literal->token = token;
+    return string_literal;
 }
 
 struct integer_literal *integer_literal_alloc(struct token token)
@@ -906,6 +946,17 @@ void identifier_destroy(struct identifier *identifier)
     c = (char *) identifier->token.literal.str;
     FREE(c);
     FREE(identifier);
+}
+
+void string_literal_destroy(struct string_literal *string_literal)
+{
+    char *c;
+
+    c = (char *) string_literal->value.str;
+    FREE(c);
+    c = (char *) string_literal->token.literal.str;
+    FREE(c);
+    FREE(string_literal);
 }
 
 void integer_literal_destroy(struct integer_literal *integer_literal)

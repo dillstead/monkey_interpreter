@@ -1,3 +1,5 @@
+#include <str.h>
+
 #include "evaluator.h"
 
 static struct object *eval_program(struct program *program, struct environment *env)
@@ -36,6 +38,11 @@ static struct object *eval_expression_statement(struct expression_statement *exp
 static struct object *eval_integer_literal(struct integer_literal *integer_literal)
 {
     return (struct object *) integer_object_alloc(integer_literal->value);
+}
+
+static struct object *eval_string_literal(struct string_literal *string_literal)
+{
+    return (struct object *) string_object_alloc(string_literal->value);
 }
 
 static struct object *eval_boolean(struct boolean *boolean)
@@ -151,6 +158,28 @@ static struct object *eval_integer_infix_expression(struct object *left, struct 
     }
 }
 
+static struct object *eval_string_infix_expression(struct object *left, struct object *right, Text_T op)
+{
+    char *left_value;
+    char *right_value;
+    char *value;
+
+    left_value = ((struct string_object *) left)->value;
+    right_value = ((struct string_object *) right)->value;
+    if (Text_cmp(op, (Text_T) { sizeof "+" - 1, "+" }) == 0)
+    {
+        value = Str_cat(left_value, 1, 0, right_value, 1, 0);
+        return (struct object *) string_object_alloc(Text_box(value, Str_len(value, 1, 0)));
+    }
+    else
+    {
+        return (struct object *) error_object_alloc("unknown operator: %s %T %s", 
+                                                    object_type_str[left->type],
+                                                    &op,
+                                                    object_type_str[right->type]);   
+    }
+}
+
 static struct object *eval_infix_expression(struct infix_expression *infix_expression, struct environment *env)
 {
     struct object *right = NULL;
@@ -172,6 +201,10 @@ static struct object *eval_infix_expression(struct infix_expression *infix_expre
     if (left->type == INTEGER_OBJ && right->type == INTEGER_OBJ)
     {
         object = eval_integer_infix_expression(left, right, infix_expression->op);
+    }
+    else if (left->type == STRING_OBJ && right->type == STRING_OBJ)
+    {
+        object = eval_string_infix_expression(left, right, infix_expression->op);
     }
     else if (Text_cmp(op, (Text_T) { sizeof "==" - 1, "==" }) == 0)
     {
@@ -433,6 +466,10 @@ struct object *eval(struct node *node, struct environment *env)
     case BOOL_EXPR:
     {
         return eval_boolean((struct boolean *) node);
+    }
+    case STRING_LITERAL_EXPR:
+    {
+        return eval_string_literal((struct string_literal *) node);
     }
     case EXPR_STMT:
     {

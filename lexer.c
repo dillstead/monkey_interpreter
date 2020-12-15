@@ -90,7 +90,7 @@ static Text_T read_string(struct lexer *lexer)
     do
     {
         read_char(lexer);
-    } while (lexer->ch != '"');
+    } while (lexer->ch != '"' && lexer->ch != '\0');
 
     return Text_box(lexer->input + position, lexer->position - position);
 }
