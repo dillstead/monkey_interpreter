@@ -6,6 +6,7 @@
 #include "parser.h"
 #include "evaluator.h"
 #include "env.h"
+#include "builtins.h"
 
 static struct object *test_eval(const char *input)
 {
@@ -104,6 +105,7 @@ static int test_eval_integer_expression(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -149,6 +151,7 @@ static int test_eval_boolean_expression(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -179,6 +182,7 @@ static int test_eval_string_expression(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
     object = test_eval(input);
     if (object->type != STRING_OBJ)
     {
@@ -214,6 +218,7 @@ static int test_string_concatentation(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
     object = test_eval(input);
     if (object->type != STRING_OBJ)
     {
@@ -259,6 +264,7 @@ static int test_bang_operator(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -300,6 +306,7 @@ static int test_if_else_expressions(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -349,6 +356,7 @@ static int test_return_statements(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -412,6 +420,14 @@ static int test_error_handling(void)
               {
                   "\"Hello\" - \"World\"",
                   "unknown operator: STRING - STRING"
+              },
+              {
+                  "len(1)",
+                  "argument to 'len' not supported, got INTEGER"
+              },
+              {
+                  "len(\"one\", \"two\")",
+                  "wrong number of arguments. got=2, want=1"
               }
           };
     struct object *object;
@@ -420,6 +436,7 @@ static int test_error_handling(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -466,6 +483,7 @@ static int test_let_statements(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -495,9 +513,9 @@ static int test_function_object(void)
     char *str = NULL;
     int success = -1;
     
-
     lexer_init();
     parser_init();
+    builtins_init();
     object = test_eval(input);
     if (object->type != FUNC_OBJ)
     {
@@ -559,6 +577,45 @@ static int test_function_application(void)
 
     lexer_init();
     parser_init();
+    builtins_init();
+    for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
+    {
+        object = test_eval(tests[i].input);
+        if (test_integer_object(object, tests[i].expected) != 0)
+        {
+            goto cleanup;
+        }
+        object_destroy(object);
+        object = NULL;
+    }
+    success = 0;
+
+cleanup:
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
+static int test_builtin_functions(void)
+{
+    struct test
+    {
+        const char *input;
+        long long expected;
+    } tests[] =
+          {
+              {"len(\"\")", 0 },
+              {"len(\"four\")", 4 },
+              {"len(\"hello world\")", 11 },
+           };
+    struct object *object;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -622,6 +679,10 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_function_application() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_builtin_functions() != 0)
     {
         return EXIT_FAILURE;
     }

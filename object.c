@@ -13,7 +13,8 @@ const char *object_type_str [] =
     [BOOLEAN_OBJ] = "BOOLEAN",
     [STRING_OBJ] = "STRING",
     [FUNC_OBJ] = "FUNC",
-    [RETURN_VALUE] = "RETURN VALUE",
+    [BUILTIN_OBJ] = "BUILTIN",
+    [RETURN_VALUE_OBJ] = "RETURN VALUE",
     [NULL_OBJ] = "NULL",
     [ERROR_OBJ] = "ERROR"
 };
@@ -59,6 +60,11 @@ static void function_object_destroy(struct function_object *function)
 static char *function_object_inspect(struct function_object *function)
 {
     return function->inspect;
+}
+
+static char *builtin_object_inspect(struct builtin_object *builtin)
+{
+    return "builtin function";
 }
 
 static void return_value_destroy(struct return_value *return_value)
@@ -119,7 +125,7 @@ void object_destroy(struct object *object)
         function_object_destroy((struct function_object *) object);
         break;
     }
-    case RETURN_VALUE:
+    case RETURN_VALUE_OBJ:
     {
         return_value_destroy((struct return_value *) object);
         break;
@@ -155,7 +161,11 @@ char *object_inspect(struct object *object)
     {
         return function_object_inspect((struct function_object *) object);
     }
-    case RETURN_VALUE:
+    case BUILTIN_OBJ:
+    {
+        return builtin_object_inspect((struct builtin_object *) object);
+    }
+    case RETURN_VALUE_OBJ:
     {
         return return_value_inspect((struct return_value *) object);
     }
@@ -250,7 +260,7 @@ struct return_value *return_value_alloc(struct object *value)
     struct return_value *return_value;
     
     NEW0(return_value);
-    return_value->type = RETURN_VALUE;
+    return_value->type = RETURN_VALUE_OBJ;
     return_value->cnt = 1;
     return_value->value = value;
     return return_value;
