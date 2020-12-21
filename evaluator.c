@@ -1,5 +1,6 @@
 #include <str.h>
 
+#include "builtins.h"
 #include "evaluator.h"
 
 static struct object *eval_program(struct program *program, struct environment *env)
@@ -10,7 +11,7 @@ static struct object *eval_program(struct program *program, struct environment *
     for (int i = 0; i < Seq_length(program->statements); i++)
     {
         object = eval((struct node *) Seq_get(program->statements, i), env);
-        if (object->type == RETURN_VALUE)
+        if (object->type == RETURN_VALUE_OBJ)
         {
             return_value = (struct return_value *) object;
             object = return_value->value;
@@ -240,7 +241,7 @@ static struct object *eval_block_statement(struct block_statement *block_stateme
     for (int i = 0; i < Seq_length(block_statement->statements); i++)
     {
         object = eval((struct node *) Seq_get(block_statement->statements, i), env);
-        if (object->type == RETURN_VALUE || object->type == ERROR_OBJ)
+        if (object->type == RETURN_VALUE_OBJ || object->type == ERROR_OBJ)
         {
             return object;
         }
@@ -282,12 +283,17 @@ static struct object *eval_identifier(struct identifier *identifier, struct envi
     struct object *value;
     
     value = environment_get(env, identifier->value);
-    if (value == NULL)
+    if (value != NULL)
     {
-        return (struct object *) error_object_alloc("identifier not found: %T", 
-                                                    &identifier->value);
+        return value;
     }
-    return value;
+    value = (struct object *) builtins_get(identifier);
+    if (value != NULL)
+    {
+        return value;
+    }
+    return (struct object *) error_object_alloc("identifier not found: %T", 
+                                                &identifier->value);
 }
 
 static bool is_truthy(struct object *object)
@@ -381,7 +387,7 @@ struct object *unwrap_return_value(struct object *object)
 {
     struct return_value *return_value;
     
-    if (object->type == RETURN_VALUE)
+    if (object->type == RETURN_VALUE_OBJ)
     {
         return_value = (struct return_value *) object;
         object = return_value->value;
@@ -395,18 +401,24 @@ static struct object *apply_function(struct object *object, Seq_T args)
 {
     struct environment *env;
     struct function_object *function;
+    struct builtin_object *builtin;
     struct object *evaluated;
     
-    if (object->type != FUNC_OBJ)
+    if (object->type == FUNC_OBJ)
     {
-        return (struct object *) error_object_alloc("not a function: %s", 
-                                                    object_type_str[object->type]);
+        function = (struct function_object *) object;
+        env = extend_function_env(function, args);
+        evaluated = eval((struct node *) function->value->body, env);
+        environment_destroy(env);
+        return unwrap_return_value(evaluated);
     }
-    function = (struct function_object *) object;
-    env = extend_function_env(function, args);
-    evaluated = eval((struct node *) function->value->body, env);
-    environment_destroy(env);
-    return unwrap_return_value(evaluated);
+    else if (object->type == BUILTIN_OBJ)
+    {
+        builtin = (struct builtin_object *) object;
+        return builtin->value(args);
+    }
+    return (struct object *) error_object_alloc("not a function: %s", 
+                                                object_type_str[object->type]);
 }
 
 static struct object *eval_call_expression(struct call_expression *call_expression,

@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <text.h>
+#include <seq.h>
 
 #include "env.h"
 
@@ -12,7 +13,8 @@ enum object_type
     BOOLEAN_OBJ,
     STRING_OBJ,
     FUNC_OBJ,
-    RETURN_VALUE,
+    BUILTIN_OBJ,
+    RETURN_VALUE_OBJ,
     NULL_OBJ,
     ERROR_OBJ
 };
@@ -55,6 +57,13 @@ struct function_object
     struct environment *env;
     struct function_literal *value;
     char *inspect;
+};
+
+struct builtin_object
+{
+    enum object_type type;
+    unsigned int cnt;
+    struct object *(*value)(Seq_T args);
 };
 
 struct return_value

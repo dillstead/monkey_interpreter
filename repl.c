@@ -8,6 +8,7 @@
 #include "parser.h"
 #include "evaluator.h"
 #include "env.h"
+#include "builtins.h"
 
 static void print_parse_errors(struct parser *parser)
 {
@@ -28,6 +29,7 @@ void repl_start(void)
     Fmt_register('T', Text_fmt);
     lexer_init();
     parser_init();
+    builtins_init();
     env = environment_alloc();
     while (true)
     {
