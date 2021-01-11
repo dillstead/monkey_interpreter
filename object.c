@@ -12,6 +12,7 @@ const char *object_type_str [] =
     [INTEGER_OBJ] = "INTEGER",
     [BOOLEAN_OBJ] = "BOOLEAN",
     [STRING_OBJ] = "STRING",
+    [ARRAY_OBJ] = "ARRAY",
     [FUNC_OBJ] = "FUNC",
     [BUILTIN_OBJ] = "BUILTIN",
     [RETURN_VALUE_OBJ] = "RETURN VALUE",
@@ -47,6 +48,22 @@ static void string_object_destroy(struct string_object *string)
 static char *string_object_inspect(struct string_object *string)
 {
     return string->value;
+}
+
+static void array_object_destroy(struct array_object *array)
+{
+    for (int i = 0; i < Seq_length(array->elements); i++)
+    {
+        object_destroy((struct object *) Seq_get(array->elements, i));
+    }
+    Seq_free(&array->elements);
+    FREE(array->inspect);
+    FREE(array);
+}
+
+static char *array_object_inspect(struct array_object *array)
+{
+    return array->inspect;
 }
 
 static void function_object_destroy(struct function_object *function)
@@ -120,6 +137,11 @@ void object_destroy(struct object *object)
         string_object_destroy((struct string_object *) object);
         break;
     }
+    case ARRAY_OBJ:
+    {
+        array_object_destroy((struct array_object *) object);
+        break;
+    }
     case FUNC_OBJ:
     {
         function_object_destroy((struct function_object *) object);
@@ -156,6 +178,10 @@ char *object_inspect(struct object *object)
     case STRING_OBJ:
     {
         return string_object_inspect((struct string_object *) object);
+    }
+    case ARRAY_OBJ:
+    {
+        return array_object_inspect((struct array_object *) object);
     }
     case FUNC_OBJ:
     {
@@ -202,6 +228,42 @@ struct string_object *string_object_alloc(Text_T value)
     string->cnt = 1;
     string->value = Text_get(NULL, 0, value);
     return string;
+}
+
+struct array_object *array_object_alloc(Seq_T elements)
+{
+    struct array_object *array;
+    struct object *object;
+    char *str;
+    char *str1;
+    char *str2;
+    
+    NEW0(array);
+    array->type = ARRAY_OBJ;
+    array->cnt = 1;
+    array->elements = elements;
+    str1 = Str_dup("[", 1, 0, 1);
+    if (Seq_length(array->elements) > 0)
+    {
+        
+        object = (struct object *) Seq_get(array->elements, 0);
+        str2 = object_inspect(object);
+        str = Str_cat(str1, 1, 0, str2, 1, 0);
+        FREE(str1);
+        str1 = str;
+        for (int i = 1; i < Seq_length(array->elements); i++)
+        {
+            object = (struct object *) Seq_get(array->elements, i);
+            str2 = object_inspect(object);
+            str = Str_catv(str1, 1, 0, ", ", 1, 0, str2, 1, 0, NULL);
+            FREE(str1);
+            str1 = str;
+        }
+    }
+    str = Str_cat(str1, 1, 0, "]", 1, 0);
+    FREE(str1);
+    array->inspect = str;
+    return array;
 }
 
 struct function_object *function_object_alloc(struct function_literal *value,

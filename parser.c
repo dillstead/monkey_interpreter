@@ -16,7 +16,8 @@ enum precedence_type
     SUM_PREC,
     PRODUCT_PREC,
     PREFIX_PREC,
-    CALL_PREC
+    CALL_PREC,
+    INDEX_PREC
 };
 
 struct prefix_parse_fn
@@ -455,14 +456,14 @@ cleanup:
     return (struct expression *) function_literal;
 }
 
-static Seq_T parse_call_arguments(struct parser *parser)
+static Seq_T parse_expression_list(struct parser *parser, enum token_type end)
 {
-    Seq_T arguments;
+    Seq_T expressions;
     struct expression *expression;
     bool success = false;
 
-    arguments = Seq_new(10);
-    if (peek_token_is(parser, RPAREN))
+    expressions = Seq_new(10);
+    if (peek_token_is(parser, end))
     {
         next_token(parser);
         success = true;
@@ -470,15 +471,15 @@ static Seq_T parse_call_arguments(struct parser *parser)
     }
     next_token(parser);
     expression = parse_expression(parser, LOWEST_PREC);
-    Seq_addhi(arguments, expression);
+    Seq_addhi(expressions, expression);
     while (peek_token_is(parser, COMMA))
     {
         next_token(parser);
         next_token(parser);
         expression = parse_expression(parser, LOWEST_PREC);
-        Seq_addhi(arguments, expression);
+        Seq_addhi(expressions, expression);
     }
-    if (!expect_peek(parser, RPAREN))
+    if (!expect_peek(parser, end))
     {
         goto cleanup;
     }
@@ -487,25 +488,51 @@ static Seq_T parse_call_arguments(struct parser *parser)
 cleanup:
     if (!success)
     {
-        for (int i = 0; i < Seq_length(arguments); i++)
+        for (int i = 0; i < Seq_length(expressions); i++)
         {
-            expression = (struct expression *) Seq_get(arguments, i);
+            expression = (struct expression *) Seq_get(expressions, i);
             expression_destroy(expression);
         }
-        Seq_free(&arguments);
+        Seq_free(&expressions);
     }
-    return arguments;
+    return expressions;
 }
 
 static struct expression *parse_call_expression(struct parser *parser,
-        struct expression *function)
+                                                struct expression *function)
 {
     struct call_expression *call_expression;
 
     call_expression = call_expression_alloc(parser->cur_token);
     call_expression->function = function;
-    call_expression->arguments = parse_call_arguments(parser);
+    call_expression->arguments = parse_expression_list(parser, RPAREN);
     return (struct expression *) call_expression;
+}
+
+static struct array_literal *parse_array_literal(struct parser *parser)
+{
+    struct array_literal *array_literal;
+
+    array_literal = array_literal_alloc(parser->cur_token);
+    array_literal->elements = parse_expression_list(parser, RBRAKET);
+    return array_literal;
+}
+
+static struct expression *parse_index_expression(struct parser *parser,
+                                                 struct expression *left)
+{
+    struct index_expression *index_expression;
+
+    index_expression = index_expression_alloc(parser->cur_token);
+    index_expression->left = left;
+    next_token(parser);
+    index_expression->index = parse_expression(parser, LOWEST_PREC);
+    if (!expect_peek(parser, RBRAKET))
+    {
+        index_expression_destroy(index_expression);
+        index_expression = NULL;
+    }
+    return (struct expression *) index_expression;
 }
 
 void parser_init(void)
@@ -524,7 +551,8 @@ void parser_init(void)
           { MINUS, SUM_PREC },
           { SLASH, PRODUCT_PREC },
           { ASTERISK, PRODUCT_PREC },
-          { LPAREN, CALL_PREC }
+          { LPAREN, CALL_PREC },
+          { LBRAKET, INDEX_PREC }
       };
     static struct type_prefix
     {
@@ -535,6 +563,7 @@ void parser_init(void)
           {IDENT, {(struct expression *(*)(struct parser *)) parse_identifier}},
           {STRING, {(struct expression *(*)(struct parser *)) parse_string_literal}},
           {INT, {(struct expression *(*)(struct parser *)) parse_integer_literal}},
+          {LBRAKET, {(struct expression *(*)(struct parser *)) parse_array_literal}},
           {TRUE, {(struct expression *(*)(struct parser *)) parse_boolean}},
           {FALSE, {(struct expression *(*)(struct parser *)) parse_boolean}},
           {BANG, {parse_prefix_expression}},
@@ -558,6 +587,7 @@ void parser_init(void)
           {LT, {parse_infix_expression}},
           {GT, {parse_infix_expression}},
           {LPAREN, {parse_call_expression}},
+          {LBRAKET, {parse_index_expression}}
       };
     Fmt_register('T', Text_fmt);
     precedences = Table_new(0, int_cmp, int_hash);

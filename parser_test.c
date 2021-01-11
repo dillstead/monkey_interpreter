@@ -31,8 +31,8 @@ static int test_integer_literal(struct expression *expression, long long value)
 
     if (expression->type != INT_LITERAL_EXPR)
     {
-        Fmt_print("not integer_literal got=%d\n",
-                  expression->type);
+        Fmt_print("not integer_literal got=%s\n",
+                  node_type_str[expression->type]);
         return -1;
     }
     integer_literal = (struct integer_literal *) expression;
@@ -58,8 +58,8 @@ static int test_identifier(struct expression *expression, const char *value)
     
     if (expression->type != IDENT_EXPR)
     {
-        Fmt_print("not identifier got=%d\n",
-                  expression->type);
+        Fmt_print("not identifier got=%s\n",
+                  node_type_str[expression->type]);
         return -1;
     }
     identifier = (struct identifier *) expression;
@@ -87,7 +87,7 @@ static int test_boolean_literal(struct expression *expression, bool value)
 
     if (expression->type != BOOL_EXPR)
     {
-        Fmt_print("not boolean got=%d\n", expression->type);
+        Fmt_print("not boolean got=%s\n", node_type_str[expression->type]);
         return -1;
     }
     boolean = (struct boolean *) expression;
@@ -141,14 +141,14 @@ static int test_identifier_expression(void)
     statement = (struct statement *) Seq_get(program->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
     if (expression_statement->expression->type != IDENT_EXPR)
     {
-        Fmt_print("not identifier got=%d\n",
-                  expression_statement->expression->type);
+        Fmt_print("not identifier got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
         goto cleanup;
     }
     if (test_identifier(expression_statement->expression, value) != 0)
@@ -202,14 +202,14 @@ static int test_string_literal_expression(void)
     statement = (struct statement *) Seq_get(program->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%d\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
     if (expression_statement->expression->type != STRING_LITERAL_EXPR)
     {
-        Fmt_print("not string_literal got=%d\n",
-                  expression_statement->expression->type);
+        Fmt_print("not string_literal got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
         goto cleanup;
     }
     string_literal = (struct string_literal *) expression_statement->expression;
@@ -265,14 +265,14 @@ static int test_integer_literal_expression(void)
     statement = (struct statement *) Seq_get(program->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%d\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
     if (expression_statement->expression->type != INT_LITERAL_EXPR)
     {
-        Fmt_print("not integer_literal got=%d\n",
-                  expression_statement->expression->type);
+        Fmt_print("not integer_literal got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
         goto cleanup;
     }
     if (test_integer_literal(expression_statement->expression, expected) != 0)
@@ -334,7 +334,7 @@ static int test_boolean_expression(void)
         statement = (struct statement *) Seq_get(program->statements, 0);
         if (statement->type != EXPR_STMT)
         {
-            Fmt_print("not expression_statement got=%d\n", statement->type);
+            Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
             goto cleanup;
         }
         expression_statement = (struct expression_statement *) statement;
@@ -374,7 +374,7 @@ static int test_literal_expression(struct expression *expression, enum node_type
     }
     default:
     {
-        Fmt_print("type of expr not handled got=%d\n", type);
+        Fmt_print("type of expr not handled got=%s\n", node_type_str[type]);
         break;
     }
     }
@@ -389,7 +389,7 @@ static int test_let_statement(struct statement *s, const char *name,
 
     if (s->type != LET_STMT)
     {
-        Fmt_print("not let_statement got=%d\n", s->type);
+        Fmt_print("not let_statement got=%s\n", node_type_str[s->type]);
         return -1;
     }
     if (Text_cmp(statement_token_literal(s), let) != 0)
@@ -531,7 +531,7 @@ static int test_return_statements(void)
         statement = (struct statement *) Seq_get(program->statements, 0);
         if (statement->type != RETURN_STMT)
         {
-            Fmt_print("not return_statement got=%d\n", statement->type);
+            Fmt_print("not return_statement got=%s\n", node_type_str[statement->type]);
             goto cleanup;
         }
         return_statement = (struct return_statement *) statement;
@@ -580,7 +580,7 @@ static int test_prefix_expression(struct expression *expression,
     
     if (expression->type != PREFIX_EXPR)
     {
-        Fmt_print("not prefix_expression got=%d\n", expression->type);
+        Fmt_print("not prefix_expression got=%s\n", node_type_str[expression->type]);
         return -1;
     }
     prefix_expression = (struct prefix_expression *) expression;
@@ -609,7 +609,7 @@ static int test_infix_expression(struct expression *expression,
     
     if (expression->type != INFIX_EXPR)
     {
-        Fmt_print("not infix got=%d\n", expression->type);
+        Fmt_print("not infix got=%s\n", node_type_str[expression->type]);
         return -1;
     }
     infix_expression = (struct infix_expression *) expression;
@@ -676,7 +676,7 @@ static int test_prefix_expressions(void)
         statement = (struct statement *) Seq_get(program->statements, 0);
         if (statement->type != EXPR_STMT)
         {
-            Fmt_print("not expression_statement got=%d\n", statement->type);
+            Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
             goto cleanup;
         }
         expression_statement = (struct expression_statement *) statement;
@@ -764,7 +764,7 @@ static int test_infix_expressions(void)
         statement = (struct statement *) Seq_get(program->statements, 0);
         if (statement->type != EXPR_STMT)
         {
-            Fmt_print("not expression_statement got=%d\n", statement->type);
+            Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
             goto cleanup;
         }
         expression_statement = (struct expression_statement *) statement;
@@ -797,6 +797,149 @@ cleanup:
         parser_destroy(parser);
     }
     return success;       
+}
+
+static int test_array_literal_expression(void)
+{
+    const char *input = "[1, 2 * 2, 3 + 3]";
+    struct lexer *lexer = NULL;
+    struct parser *parser = NULL;
+    struct program *program = NULL;
+    struct statement *statement = NULL;
+    struct expression_statement *expression_statement = NULL;
+    struct array_literal *array_literal = NULL;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    lexer = lexer_alloc(input);
+    parser = parser_alloc(lexer);
+    program = parser_parse_program(parser);
+    if (program == NULL)
+    {
+        Fmt_print("parser_parse_program return NULL\n");
+        goto cleanup;
+    }
+    if (check_parse_errors(parser) != 0)
+    {
+        goto cleanup;
+    }
+    if (Seq_length(program->statements) != 1)
+    {
+        Fmt_print("program statements does not contain 1 statement, got=%d\n",
+                  Seq_length(program->statements));
+        goto cleanup;
+    }
+    statement = (struct statement *) Seq_get(program->statements, 0);
+    if (statement->type != EXPR_STMT)
+    {
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
+        goto cleanup;
+    }
+    expression_statement = (struct expression_statement *) statement;
+    if (expression_statement->expression->type != ARRAY_LITERAL_EXPR)
+    {
+        Fmt_print("not array_literal got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
+        goto cleanup;
+    }
+    array_literal = (struct array_literal *) expression_statement->expression;
+    if (Seq_length(array_literal->elements) != 3)
+    {
+        Fmt_print("len(array) not 3 got=%d\n", Seq_length(array_literal->elements));
+        goto cleanup;
+    }
+ 
+    if (test_integer_literal((struct expression *) Seq_get(array_literal->elements, 0), 1) != 0)
+    {
+        goto cleanup;
+    }
+    if (test_infix_expression((struct expression *) Seq_get(array_literal->elements, 1), INT_LITERAL_EXPR, (void *) 2, "*",
+                              INT_LITERAL_EXPR, (void *) 2) != 0)
+    {
+        goto cleanup;
+    }
+    if (test_infix_expression((struct expression *) Seq_get(array_literal->elements, 2), INT_LITERAL_EXPR, (void *) 3, "+",
+                              INT_LITERAL_EXPR, (void *) 3) != 0)
+    {
+        goto cleanup;
+    }
+    success = 0;
+
+cleanup:
+    if (program != NULL)
+    {
+        program_destroy(program);
+    }
+    lexer_destroy(lexer);
+    parser_destroy(parser);
+    return success;
+}
+
+static int test_index_expression(void)
+{
+    const char *input = "myArray[1 + 1]";
+    struct lexer *lexer = NULL;
+    struct parser *parser = NULL;
+    struct program *program = NULL;
+    struct statement *statement = NULL;
+    struct expression_statement *expression_statement = NULL;
+    struct index_expression *index_expression = NULL;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    lexer = lexer_alloc(input);
+    parser = parser_alloc(lexer);
+    program = parser_parse_program(parser);
+    if (program == NULL)
+    {
+        Fmt_print("parser_parse_program return NULL\n");
+        goto cleanup;
+    }
+    if (check_parse_errors(parser) != 0)
+    {
+        goto cleanup;
+    }
+    if (Seq_length(program->statements) != 1)
+    {
+        Fmt_print("program statements does not contain 1 statement, got=%d\n",
+                  Seq_length(program->statements));
+        goto cleanup;
+    }
+    statement = (struct statement *) Seq_get(program->statements, 0);
+    if (statement->type != EXPR_STMT)
+    {
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
+        goto cleanup;
+    }
+    expression_statement = (struct expression_statement *) statement;
+    if (expression_statement->expression->type != INDEX_EXPR)
+    {
+        Fmt_print("not index_expression got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
+        goto cleanup;
+    }
+    index_expression = (struct index_expression *) expression_statement->expression;
+    if (test_identifier(index_expression->left, "myArray") != 0)
+    {
+        goto cleanup;
+    }
+    if (test_infix_expression(index_expression->index, INT_LITERAL_EXPR, (void *) 1, "+",
+                              INT_LITERAL_EXPR, (void *) 1) != 0)
+    {
+        goto cleanup;
+    }
+    success = 0;
+
+cleanup:
+    if (program != NULL)
+    {
+        program_destroy(program);
+    }
+    lexer_destroy(lexer);
+    parser_destroy(parser);
+    return success;
 }
 
 static int test_if_expression(void)
@@ -834,13 +977,13 @@ static int test_if_expression(void)
     statement = (struct statement *) Seq_get(program->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
     if (expression_statement->expression->type != IF_EXPR)
     {
-        Fmt_print("not if got=%d\n", expression_statement->expression->type);
+        Fmt_print("not if got=%s\n", node_type_str[expression_statement->expression->type]);
         return -1;
     }
     if_expression = (struct if_expression *) expression_statement->expression;
@@ -858,7 +1001,7 @@ static int test_if_expression(void)
     statement = (struct statement *) Seq_get(if_expression->consequence->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
@@ -925,13 +1068,13 @@ static int test_if_else_expression(void)
     statement = (struct statement *) Seq_get(program->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
     if (expression_statement->expression->type != IF_EXPR)
     {
-        Fmt_print("not if got=%d\n", expression_statement->expression->type);
+        Fmt_print("not if got=%s\n", node_type_str[expression_statement->expression->type]);
         return -1;
     }
     if_expression = (struct if_expression *) expression_statement->expression;
@@ -949,7 +1092,7 @@ static int test_if_else_expression(void)
     statement = (struct statement *) Seq_get(if_expression->consequence->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
@@ -971,7 +1114,7 @@ static int test_if_else_expression(void)
     statement = (struct statement *) Seq_get(if_expression->alternative->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
@@ -1005,10 +1148,10 @@ static int test_operator_precedence_parsing()
         const char *expected;
     } tests[] =
           {
-              /*{
+              {
                   "a + add(b * c) + d",
                   "((a + add((b * c))) + d)",
-                  },*/
+              },
               {
                   "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
                   "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
@@ -1088,6 +1231,14 @@ static int test_operator_precedence_parsing()
               {
                   "!(true == true)",
                   "(!(true == true))"
+              },
+              {
+                  "a * [1, 2, 3, 4][b * c] * d",
+                  "((a * ([1, 2, 3, 4][(b * c)])) * d)",
+              },
+              {
+                  "add(a * b[2], b[1], 2 * [1, 2][1])",
+                  "add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))",
               },
           };
     struct lexer *lexer = NULL;
@@ -1189,14 +1340,14 @@ static int test_function_literal_parsing(void)
     statement = (struct statement *) Seq_get(program->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
     if (expression_statement->expression->type != FUNC_LITERAL_EXPR)
     {
-        Fmt_print("not function literal got=%d\n",
-                  expression_statement->expression->type);
+        Fmt_print("not function literal got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
         goto cleanup;
     }
     function_literal = (struct function_literal *) expression_statement->expression;
@@ -1222,7 +1373,7 @@ static int test_function_literal_parsing(void)
     statement = (struct statement *) Seq_get(function_literal->body->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
@@ -1301,14 +1452,14 @@ static int test_function_parameter_parsing()
         statement = (struct statement *) Seq_get(program->statements, 0);
         if (statement->type != EXPR_STMT)
         {
-            Fmt_print("not expression_statement got=%d\n", statement->type);
+            Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
             goto cleanup;
         }
         expression_statement = (struct expression_statement *) statement;
         if (expression_statement->expression->type != FUNC_LITERAL_EXPR)
         {
-            Fmt_print("not function literal got=%d\n",
-                      expression_statement->expression->type);
+            Fmt_print("not function literal got=%s\n",
+                      node_type_str[expression_statement->expression->type]);
             goto cleanup;
         }
         function_literal = (struct function_literal *) expression_statement->expression;
@@ -1385,14 +1536,14 @@ static int test_call_expression_parsing(void)
     statement = (struct statement *) Seq_get(program->statements, 0);
     if (statement->type != EXPR_STMT)
     {
-        Fmt_print("not expression_statement got=%d\n", statement->type);
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
     if (expression_statement->expression->type != CALL_EXPR)
     {
-        Fmt_print("not call expression got=%d\n",
-                  expression_statement->expression->type);
+        Fmt_print("not call expression got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
         goto cleanup;
     }
     call_expression = (struct call_expression *) expression_statement->expression;
@@ -1458,6 +1609,14 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_integer_literal_expression() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_array_literal_expression() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_index_expression() != 0)
     {
         return EXIT_FAILURE;
     }
