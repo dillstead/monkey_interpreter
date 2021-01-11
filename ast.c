@@ -5,6 +5,26 @@
 
 static Text_T empty = { 0, "" };
 
+const char *node_type_str [] =
+{
+    [PROGRAM] = "PROGRAM",
+    [LET_STMT] = "LET STMT",
+    [RETURN_STMT] = "RETURN STMT",
+    [EXPR_STMT] = "EXPR STMT",
+    [BLOCK_STMT] = "BLOCK STMT",
+    [IDENT_EXPR] = "IDENT EXPR",
+    [STRING_LITERAL_EXPR] = "STRING_LITERAL",
+    [INT_LITERAL_EXPR] = "INT_LITERAL",
+    [ARRAY_LITERAL_EXPR] = "ARRAY_LITERAL",
+    [FUNC_LITERAL_EXPR] = "FUNC_LITERAL",
+    [INDEX_EXPR] = "INDEX EXPR",
+    [PREFIX_EXPR] = "PREFIX EXPR",
+    [INFIX_EXPR] = "INFIX EXPR",
+    [BOOL_EXPR] = "BOOL EXPR",
+    [IF_EXPR] = "IF EXPR",
+    [CALL_EXPR] = "CALL EXPR"
+};
+
 Text_T expression_token_literal(struct expression *expression)
 {
     
@@ -22,6 +42,10 @@ Text_T expression_token_literal(struct expression *expression)
     {
         return integer_literal_token_literal((struct integer_literal *) expression);
     }
+    case ARRAY_LITERAL_EXPR:
+    {
+        return array_literal_token_literal((struct array_literal *) expression);
+    }
     case FUNC_LITERAL_EXPR:
     {
         return function_literal_token_literal((struct function_literal *) expression);
@@ -29,6 +53,10 @@ Text_T expression_token_literal(struct expression *expression)
     case BOOL_EXPR:
     {
         return boolean_token_literal((struct boolean *) expression);
+    }
+    case INDEX_EXPR:
+    {
+        return prefix_expression_token_literal((struct prefix_expression *) expression);
     }
     case PREFIX_EXPR:
     {
@@ -109,6 +137,11 @@ Text_T integer_literal_token_literal(struct integer_literal *integer_literal)
     return integer_literal->token.literal;
 }
 
+Text_T array_literal_token_literal(struct array_literal *array_literal)
+{
+    return array_literal->token.literal;
+}
+
 Text_T function_literal_token_literal(struct function_literal *function_literal)
 {
     return function_literal->token.literal;
@@ -137,6 +170,11 @@ Text_T expression_statement_token_literal(struct expression_statement *expressio
 Text_T block_statement_token_literal(struct block_statement *block_statement)
 {
     return block_statement->token.literal;
+}
+
+Text_T index_expression_token_literal(struct index_expression *index_expression)
+{
+    return index_expression->token.literal;
 }
 
 Text_T prefix_expression_token_literal(struct prefix_expression *prefix_expression)
@@ -176,6 +214,10 @@ char *expression_to_string(struct expression *expression)
     {
         return integer_literal_to_string((struct integer_literal *) expression);
     }
+    case ARRAY_LITERAL_EXPR:
+    {
+        return array_literal_to_string((struct array_literal *) expression);
+    }
     case FUNC_LITERAL_EXPR:
     {
         return function_literal_to_string((struct function_literal *) expression);
@@ -183,6 +225,10 @@ char *expression_to_string(struct expression *expression)
     case BOOL_EXPR:
     {
         return boolean_to_string((struct boolean *) expression);
+    }
+    case INDEX_EXPR:
+    {
+        return index_expression_to_string((struct index_expression *) expression);
     }
     case PREFIX_EXPR:
     {
@@ -293,6 +339,37 @@ char *integer_literal_to_string(struct integer_literal *integer_literal)
     len = 24;
     str = ALLOC(len);
     snprintf(str, len, "%lld", integer_literal->value);
+    return str;
+}
+
+char *array_literal_to_string(struct array_literal *array_literal)
+{
+    struct expression *expression;
+    char *str;
+    char *str1;
+    char *str2;
+    
+    str1 = Str_dup("[", 1, 0, 1);
+    if (Seq_length(array_literal->elements) > 0)
+    {
+        expression = (struct expression *) Seq_get(array_literal->elements, 0);
+        str2 = expression_to_string(expression);
+        str = Str_cat(str1, 1, 0, str2, 1, 0);
+        FREE(str2);
+        FREE(str1);
+        str1 = str;
+        for (int i = 1; i < Seq_length(array_literal->elements); i++)
+        {
+            expression = (struct expression *) Seq_get(array_literal->elements, i);
+            str2 = expression_to_string(expression);
+            str = Str_catv(str1, 1, 0, ", ", 1, 0, str2, 1, 0, NULL);
+            FREE(str2);
+            FREE(str1);
+            str1 = str;
+        }
+    }
+    str = Str_cat(str1, 1, 0, "]", 1, 0);
+    FREE(str1);
     return str;
 }
 
@@ -439,6 +516,20 @@ char *block_statement_to_string(struct block_statement *block_statement)
     }    
 }
 
+char *index_expression_to_string(struct index_expression *index_expression)
+{
+    char *str;
+    char *str1;
+    char *str2;
+
+    str1 = expression_to_string(index_expression->left);
+    str2 = expression_to_string(index_expression->index);
+    str = Str_catv("(", 1, 0, str1, 1, 0, "[", 1, 0, str2, 1, 0, "])", 1, 0, NULL);
+    FREE(str2);
+    FREE(str1);
+    return str;
+}
+
 char *prefix_expression_to_string(struct prefix_expression *prefix_expression)
 {
     int len;
@@ -556,6 +647,11 @@ void expression_destroy(struct expression *expression)
         integer_literal_destroy((struct integer_literal *) expression);
         break;
     }
+    case ARRAY_LITERAL_EXPR:
+    {
+        array_literal_destroy((struct array_literal *) expression);
+        break;
+    }
     case FUNC_LITERAL_EXPR:
     {
         function_literal_destroy((struct function_literal *) expression);
@@ -564,6 +660,11 @@ void expression_destroy(struct expression *expression)
     case BOOL_EXPR:
     {
         boolean_destroy((struct boolean *) expression);
+        break;
+    }
+    case INDEX_EXPR:
+    {
+        index_expression_destroy((struct index_expression *) expression);
         break;
     }
     case PREFIX_EXPR:
@@ -706,6 +807,17 @@ struct integer_literal *integer_literal_alloc(struct token token)
     return integer_literal;
 }
 
+struct array_literal *array_literal_alloc(struct token token)
+{
+    struct array_literal *array_literal;
+
+    NEW0(array_literal);
+    array_literal->type = ARRAY_LITERAL_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
+    array_literal->token = token;
+    return array_literal;
+}
+
 struct function_literal *function_literal_alloc(struct token token)
 {
     struct function_literal *function_literal;
@@ -757,6 +869,17 @@ struct block_statement *block_statement_alloc(struct token token)
     block_statement->token = token;
     block_statement->statements = Seq_new(100);
     return block_statement;
+}
+
+struct index_expression *index_expression_alloc(struct token token)
+{
+    struct index_expression *index_expression;
+
+    NEW0(index_expression);
+    index_expression->type = INDEX_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
+    index_expression->token = token;
+    return index_expression;
 }
 
 struct prefix_expression *prefix_expression_alloc(struct token token)
@@ -868,6 +991,21 @@ void block_statement_destroy(struct block_statement *block_statement)
     FREE(block_statement);
 }
 
+void index_expression_destroy(struct index_expression *index_expression)
+{
+    char *c;
+    
+    if (index_expression == NULL)
+    {
+        return;
+    }
+    expression_destroy(index_expression->left);
+    expression_destroy(index_expression->index);
+    c = (char *) index_expression->token.literal.str;
+    FREE(c);
+    FREE(index_expression);
+}
+
 void prefix_expression_destroy(struct prefix_expression *prefix_expression)
 {
     char *c;
@@ -966,6 +1104,29 @@ void integer_literal_destroy(struct integer_literal *integer_literal)
     c = (char *) integer_literal->token.literal.str;
     FREE(c);
     FREE(integer_literal);
+}
+
+void array_literal_destroy(struct array_literal *array_literal)
+{
+    struct expression *expression;
+    char *c;
+        
+    if (array_literal == NULL)
+    {
+        return;
+    }
+    if (array_literal->elements != NULL)
+    {
+        for (int i = 0; i < Seq_length(array_literal->elements); i++)
+        {
+            expression = (struct expression *) Seq_get(array_literal->elements, i);
+            expression_destroy(expression);
+        }
+        Seq_free(&array_literal->elements);
+    }
+    c = (char *) array_literal->token.literal.str;
+    FREE(c);
+    FREE(array_literal);
 }
 
 void function_literal_destroy(struct function_literal *function_literal)

@@ -12,6 +12,7 @@ enum object_type
     INTEGER_OBJ,
     BOOLEAN_OBJ,
     STRING_OBJ,
+    ARRAY_OBJ,
     FUNC_OBJ,
     BUILTIN_OBJ,
     RETURN_VALUE_OBJ,
@@ -48,6 +49,14 @@ struct string_object
     enum object_type type;
     unsigned int cnt;
     char *value;
+};
+
+struct array_object
+{
+    enum object_type type;
+    unsigned int cnt;
+    Seq_T elements;
+    char *inspect;
 };
 
 struct function_object
@@ -97,6 +106,7 @@ char *object_inspect(struct object *object);
 struct integer_object *integer_object_alloc(long long value);
 struct boolean_object *boolean_object_alloc(bool value);
 struct string_object *string_object_alloc(Text_T value);
+struct array_object *array_object_alloc(Seq_T elements);
 struct function_object *function_object_alloc(struct function_literal *value,
                                               struct environment *env);
 struct return_value *return_value_alloc(struct object *value);

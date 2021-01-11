@@ -186,7 +186,7 @@ static struct object *eval_infix_expression(struct infix_expression *infix_expre
     struct object *right = NULL;
     struct object *left = NULL;
     Text_T op = infix_expression->op;
-    struct object *object = (struct object *) &null_object;
+    struct object *object;
 
     left = eval((struct node *) infix_expression->left, env);
     if (left->type == ERROR_OBJ)
@@ -344,7 +344,7 @@ static struct object *eval_function_literal(struct function_literal *function_li
     return (struct object *) function_object_alloc(function_literal, env);
 }
 
-Seq_T eval_expressions(Seq_T args, struct environment *env)
+static Seq_T eval_expressions(Seq_T args, struct environment *env)
 {
     struct object *evaluated;
     struct object *removed;
@@ -454,6 +454,72 @@ static struct object *eval_call_expression(struct call_expression *call_expressi
     object_destroy(object);
     return evaluated;
 }
+
+static struct object *eval_array_literal(struct array_literal *array_literal,
+                                         struct environment *env)
+{
+    struct object *element;
+    Seq_T elements;
+    
+    elements = eval_expressions(array_literal->elements, env);
+    if (Seq_length(elements) == 1)
+    {
+        element = (struct object *) Seq_get(elements, 0);
+        if (element->type == ERROR_OBJ)
+        {
+            Seq_free(&elements);
+            return element;
+        }
+    }
+    return (struct object *) array_object_alloc(elements);
+}
+
+static struct object *eval_array_index_expression(struct object *left, struct object *index)
+{
+    struct array_object *array = (struct array_object *) left;
+    long long index_value = ((struct integer_object *) index)->value;
+    struct object *object;
+
+    if (index_value < 0 || index_value > Seq_length(array->elements) - 1)
+    {
+        return (struct object *) &null_object;
+    }
+    object = (struct object *) Seq_get(array->elements, index_value);
+    object_addref(object);
+    return object;
+}
+
+static struct object *eval_index_expression(struct index_expression *index_expression,
+                                            struct environment *env)
+{
+    struct object *left = NULL;
+    struct object *index = NULL;
+    struct object *object;
+
+    left = eval((struct node *) index_expression->left, env);
+    if (left->type == ERROR_OBJ)
+    {
+        return left;
+    }
+    index = eval((struct node *) index_expression->index, env);
+    if (index->type == ERROR_OBJ)
+    {
+        object_destroy(left);
+        return index;
+    }
+    if (left->type == ARRAY_OBJ && index->type == INTEGER_OBJ)
+    {
+        object = eval_array_index_expression(left, index);
+    }
+    else
+    {
+        object = (struct object *) error_object_alloc("index operator not supported: %s", 
+                                                      object_type_str[left->type]);
+    }
+    object_destroy(left);
+    object_destroy(index);
+    return object;
+}
     
 struct object *eval(struct node *node, struct environment *env)
 {
@@ -483,7 +549,15 @@ struct object *eval(struct node *node, struct environment *env)
     {
         return eval_string_literal((struct string_literal *) node);
     }
-    case EXPR_STMT:
+    case ARRAY_LITERAL_EXPR:
+    {
+        return eval_array_literal((struct array_literal *) node, env);
+    }
+    case INDEX_EXPR:
+    {
+        return eval_index_expression((struct index_expression *) node, env);
+    }
+    case  EXPR_STMT:
     {
         return eval_expression_statement((struct expression_statement *) node, env);
     }
