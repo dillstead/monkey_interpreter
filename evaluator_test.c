@@ -295,6 +295,136 @@ cleanup:
     return success;
 }
 
+static int test_eval_hash_expressions(void)
+{
+    const char *input = "let two = \"two\";"
+        "{ \"one\": 10 - 9, two: 1 + 1, \"thr\" + \"ee\": 6 / 2, 4: 4, true: 5, false: 6 }";
+    struct test
+    {
+        struct object *key;
+        long long value;
+    } expected[] =
+          {
+              {NULL, 1},
+              {NULL, 2},
+              {NULL, 3},
+              {NULL, 4},
+              {NULL, 5},
+              {NULL, 6},
+          };    
+    struct object *object;
+    struct object *value;
+    struct hash_object *hash_object;
+    int success = -1;
+
+    expected[0].key = (struct object *) string_object_alloc((Text_T) {sizeof "one" - 1, "one"});
+    expected[1].key = (struct object *) string_object_alloc((Text_T) {sizeof "two" - 1, "two"});
+    expected[2].key = (struct object *) string_object_alloc((Text_T) {sizeof "three" - 1, "three"});
+    expected[3].key = (struct object *) integer_object_alloc(4);
+    expected[4].key = (struct object *) boolean_object_alloc(true);
+    expected[5].key = (struct object *) boolean_object_alloc(false);        
+    lexer_init();
+    parser_init();
+    builtins_init();
+    object = test_eval(input);
+    if (object->type != HASH_OBJ)
+    {
+        Fmt_print("object is not hash got=%d\n", object_type_str[object->type]);
+        goto cleanup;
+    }
+    hash_object = (struct hash_object *) object;
+    if (Table_length(hash_object->pairs) != 6)
+    {
+        Fmt_print("hash has wrong number of elements, got=%d\n",
+                  Table_length(hash_object->pairs));
+        goto cleanup;
+    }
+    for (int i = 0; i < sizeof expected / sizeof expected[0]; i++)
+    {
+        value = (struct object *) Table_get(hash_object->pairs, expected[i].key);
+        if (value == NULL)
+        {
+            Fmt_print("no pair for given key\n");
+            goto cleanup;
+        }
+        if (test_integer_object(value, expected[i].value) != 0)
+        {
+            goto cleanup;
+        }            
+    }
+    object_destroy(object);
+    object = NULL;
+    success = 0;
+
+cleanup:
+    for (int i = 0; i < sizeof expected / sizeof expected[0]; i++)
+    {
+        object_destroy(expected[i].key);
+    }
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
+static int test_hash_index_expressions(void)
+{
+    struct test
+    {
+        const char *input;
+        enum object_type type;
+        long long expected;
+    } tests[] =
+          {
+              {"{\"foo\": 5}[\"foo\"]", INTEGER_OBJ, 5},
+              {"{\"foo\": 5}[\"bar\"]", NULL_OBJ},
+              {"let key = \"foo\"; {\"foo\": 5}[key]", INTEGER_OBJ, 5},
+              {"{}[\"foo\"]", NULL_OBJ},
+              {"{5: 5}[5]", INTEGER_OBJ, 5},
+              {"{true: 5}[true]", INTEGER_OBJ, 5},
+              {"{false: 5}[false]", INTEGER_OBJ, 5}
+          };
+    struct object *object;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    builtins_init();
+    for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
+    {
+        object = test_eval(tests[i].input);
+        if (tests[i].type == INTEGER_OBJ)
+        {
+            if (test_integer_object(object, tests[i].expected) != 0)
+            {
+                goto cleanup;
+            }            
+        }
+        else if (tests[i].type == NULL_OBJ)
+        {
+            if (test_null_object(object) != 0)
+            {
+                goto cleanup;
+            }
+        }
+        else
+        {
+            goto cleanup;
+        }
+        object_destroy(object);
+        object = NULL;
+    }
+    success = 0;
+
+cleanup:
+    if (object != NULL)
+    {
+        object_destroy(object);
+    }
+    return success;
+}
+
 static int test_array_index_expressions(void)
 {
     struct test
@@ -563,6 +693,18 @@ static int test_error_handling(void)
 	      {
                   "push(1, 2)",
                   "first argument to 'push' must be ARRAY, got INTEGER"
+              },
+              {
+                  "{ []: 1 + 1 }",
+                  "unusable as hash key, got ARRAY"
+              },
+              {
+                  "{\"name\": \"Monkey\"}[fn(x) { x }];",
+                  "unusable as hash key, got FUNC",
+              },
+              {
+                  "\"name\"[0]",
+                  "index operator not supported: STRING"
               }
           };
     struct object *object;
@@ -847,6 +989,14 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_array_index_expressions() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_eval_hash_expressions() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_hash_index_expressions() != 0)
     {
         return EXIT_FAILURE;
     }
