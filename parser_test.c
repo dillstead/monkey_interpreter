@@ -107,6 +107,25 @@ static int test_boolean_literal(struct expression *expression, bool value)
     return 0;
 }
 
+static int test_string_literal(struct expression *expression, const char *value)
+{
+    struct string_literal *string_literal = NULL;
+    Text_T value_literal = Text_box(value, Str_len(value, 1, 0));
+
+    if (expression->type != STRING_LITERAL_EXPR)
+    {
+        Fmt_print("not boolean got=%s\n", node_type_str[expression->type]);
+        return -1;
+    }
+    string_literal = (struct string_literal *) expression;
+    if (Text_cmp(string_literal->value, value_literal) != 0)
+    {
+        Fmt_print("string_literal->value not '%T', got=%T\n", &value_literal, &string_literal->value);
+        return -1;
+    }
+    return 0;
+}
+
 static int test_identifier_expression(void)
 {
     const char *input = "foobar;";
@@ -170,13 +189,12 @@ cleanup:
 static int test_string_literal_expression(void)
 {
     const char *input = "\"hello world\";";
-    Text_T expected = { sizeof "hello world" - 1, "hello world"};
+    const char *expected = "hello world";
     struct lexer *lexer = NULL;
     struct parser *parser = NULL;
     struct program *program = NULL;
     struct statement *statement = NULL;
     struct expression_statement *expression_statement = NULL;
-    struct string_literal *string_literal = NULL;
     int success = -1;
 
     lexer_init();
@@ -206,18 +224,9 @@ static int test_string_literal_expression(void)
         goto cleanup;
     }
     expression_statement = (struct expression_statement *) statement;
-    if (expression_statement->expression->type != STRING_LITERAL_EXPR)
+    if (test_string_literal(expression_statement->expression, expected))
     {
-        Fmt_print("not string_literal got=%s\n",
-                  node_type_str[expression_statement->expression->type]);
         goto cleanup;
-    }
-    string_literal = (struct string_literal *) expression_statement->expression;
-    if (Text_cmp(string_literal->value, expected) != 0)
-    {
-        Fmt_print("string_literal->value not '%T', got=%T\n", &expected, &string_literal->value);
-        goto cleanup;
-        return -1;
     }
     success = 0;
 
@@ -862,6 +871,211 @@ static int test_array_literal_expression(void)
     if (test_infix_expression((struct expression *) Seq_get(array_literal->elements, 2), INT_LITERAL_EXPR, (void *) 3, "+",
                               INT_LITERAL_EXPR, (void *) 3) != 0)
     {
+        goto cleanup;
+    }
+    success = 0;
+
+cleanup:
+    if (program != NULL)
+    {
+        program_destroy(program);
+    }
+    lexer_destroy(lexer);
+    parser_destroy(parser);
+    return success;
+}
+
+static int test_empty_array_literal_expression(void)
+{
+    const char *input = "[]";
+    struct lexer *lexer = NULL;
+    struct parser *parser = NULL;
+    struct program *program = NULL;
+    struct statement *statement = NULL;
+    struct expression_statement *expression_statement = NULL;
+    struct array_literal *array_literal = NULL;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    lexer = lexer_alloc(input);
+    parser = parser_alloc(lexer);
+    program = parser_parse_program(parser);
+    if (program == NULL)
+    {
+        Fmt_print("parser_parse_program return NULL\n");
+        goto cleanup;
+    }
+    if (check_parse_errors(parser) != 0)
+    {
+        goto cleanup;
+    }
+    if (Seq_length(program->statements) != 1)
+    {
+        Fmt_print("program statements does not contain 1 statement, got=%d\n",
+                  Seq_length(program->statements));
+        goto cleanup;
+    }
+    statement = (struct statement *) Seq_get(program->statements, 0);
+    if (statement->type != EXPR_STMT)
+    {
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
+        goto cleanup;
+    }
+    expression_statement = (struct expression_statement *) statement;
+    if (expression_statement->expression->type != ARRAY_LITERAL_EXPR)
+    {
+        Fmt_print("not array_literal got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
+        goto cleanup;
+    }
+    array_literal = (struct array_literal *) expression_statement->expression;
+    if (Seq_length(array_literal->elements) != 0)
+    {
+        Fmt_print("len(array) not 0 got=%d\n", Seq_length(array_literal->elements));
+        goto cleanup;
+    }
+    success = 0;
+
+cleanup:
+    if (program != NULL)
+    {
+        program_destroy(program);
+    }
+    lexer_destroy(lexer);
+    parser_destroy(parser);
+    return success;
+}
+
+static int test_hash_literal_expression(void)
+{
+    const char *input = "{true: 1 + 3, 7 : \"seven\", \"hello\" : \"world\"}";
+    struct lexer *lexer = NULL;
+    struct parser *parser = NULL;
+    struct program *program = NULL;
+    struct statement *statement = NULL;
+    struct expression_statement *expression_statement = NULL;
+    struct hash_literal *hash_literal = NULL;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    lexer = lexer_alloc(input);
+    parser = parser_alloc(lexer);
+    program = parser_parse_program(parser);
+    if (program == NULL)
+    {
+        Fmt_print("parser_parse_program return NULL\n");
+        goto cleanup;
+    }
+    if (check_parse_errors(parser) != 0)
+    {
+        goto cleanup;
+    }
+    if (Seq_length(program->statements) != 1)
+    {
+        Fmt_print("program statements does not contain 1 statement, got=%d\n",
+                  Seq_length(program->statements));
+        goto cleanup;
+    }
+    statement = (struct statement *) Seq_get(program->statements, 0);
+    if (statement->type != EXPR_STMT)
+    {
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
+        goto cleanup;
+    }
+    expression_statement = (struct expression_statement *) statement;
+    if (expression_statement->expression->type != HASH_LITERAL_EXPR)
+    {
+        Fmt_print("not hash_literal got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
+        goto cleanup;
+    }
+    hash_literal = (struct hash_literal *) expression_statement->expression;
+    if (Seq_length(hash_literal->keys) != 3 || Seq_length(hash_literal->values) != 3)
+    {
+        Fmt_print("len(array) not 3,3 got=%d,%d\n", Seq_length(hash_literal->keys),
+                  Seq_length(hash_literal->values));
+        goto cleanup;
+    }
+    if (test_boolean_literal((struct expression *) Seq_get(hash_literal->keys, 0), true) != 0
+        || test_infix_expression((struct expression *) Seq_get(hash_literal->values, 0), INT_LITERAL_EXPR, (void *) 1, "+",
+                              INT_LITERAL_EXPR, (void *) 3) != 0)
+    {
+        goto cleanup;
+        
+    }
+    if (test_integer_literal((struct expression *) Seq_get(hash_literal->keys, 1), 7) != 0
+        || test_string_literal((struct expression *) Seq_get(hash_literal->values, 1), "seven") != 0)
+    {
+        goto cleanup;
+    }
+    if (test_string_literal((struct expression *) Seq_get(hash_literal->keys, 2), "hello") != 0
+        || test_string_literal((struct expression *) Seq_get(hash_literal->values, 2), "world") != 0)
+    {
+        goto cleanup;
+    }
+    success = 0;
+
+cleanup:
+    if (program != NULL)
+    {
+        program_destroy(program);
+    }
+    lexer_destroy(lexer);
+    parser_destroy(parser);
+    return success;
+}
+
+static int test_empty_hash_literal_expression(void)
+{
+    const char *input = "{}";
+    struct lexer *lexer = NULL;
+    struct parser *parser = NULL;
+    struct program *program = NULL;
+    struct statement *statement = NULL;
+    struct expression_statement *expression_statement = NULL;
+    struct hash_literal *hash_literal = NULL;
+    int success = -1;
+
+    lexer_init();
+    parser_init();
+    lexer = lexer_alloc(input);
+    parser = parser_alloc(lexer);
+    program = parser_parse_program(parser);
+    if (program == NULL)
+    {
+        Fmt_print("parser_parse_program return NULL\n");
+        goto cleanup;
+    }
+    if (check_parse_errors(parser) != 0)
+    {
+        goto cleanup;
+    }
+    if (Seq_length(program->statements) != 1)
+    {
+        Fmt_print("program statements does not contain 1 statement, got=%d\n",
+                  Seq_length(program->statements));
+        goto cleanup;
+    }
+    statement = (struct statement *) Seq_get(program->statements, 0);
+    if (statement->type != EXPR_STMT)
+    {
+        Fmt_print("not expression_statement got=%s\n", node_type_str[statement->type]);
+        goto cleanup;
+    }
+    expression_statement = (struct expression_statement *) statement;
+    if (expression_statement->expression->type != HASH_LITERAL_EXPR)
+    {
+        Fmt_print("not hash_literal got=%s\n",
+                  node_type_str[expression_statement->expression->type]);
+        goto cleanup;
+    }
+    hash_literal = (struct hash_literal *) expression_statement->expression;
+    if (Seq_length(hash_literal->keys) != 0 || Seq_length(hash_literal->values) != 0)
+    {
+        Fmt_print("len(hash) not 0,0 got=%d, %d\n", Seq_length(hash_literal->keys),
+                  Seq_length(hash_literal->values));
         goto cleanup;
     }
     success = 0;
@@ -1613,6 +1827,18 @@ int main(void)
         return EXIT_FAILURE;
     }
     if (test_array_literal_expression() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_empty_array_literal_expression() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_hash_literal_expression() != 0)
+    {
+        return EXIT_FAILURE;
+    }
+    if (test_empty_hash_literal_expression() != 0)
     {
         return EXIT_FAILURE;
     }

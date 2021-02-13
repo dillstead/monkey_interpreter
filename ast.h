@@ -16,6 +16,7 @@ enum node_type
     STRING_LITERAL_EXPR,
     INT_LITERAL_EXPR,
     ARRAY_LITERAL_EXPR,
+    HASH_LITERAL_EXPR,
     FUNC_LITERAL_EXPR,
     INDEX_EXPR,
     PREFIX_EXPR,
@@ -76,6 +77,14 @@ struct array_literal
     enum node_type type;
     struct token token;
     Seq_T elements;
+};
+
+struct hash_literal
+{
+    enum node_type type;
+    struct token token;
+    Seq_T keys;
+    Seq_T values;
 };
 
 struct boolean
@@ -172,6 +181,7 @@ Text_T identifier_token_literal(struct identifier *identifier);
 Text_T string_literal_token_literal(struct string_literal *string_literal);
 Text_T integer_literal_token_literal(struct integer_literal *integer_literal);
 Text_T array_literal_token_literal(struct array_literal *array_literal);
+Text_T hash_literal_token_literal(struct hash_literal *hash_literal);
 Text_T function_literal_token_literal(struct function_literal *function_literal);
 Text_T boolean_token_literal(struct boolean *boolean);
 Text_T let_statement_token_literal(struct let_statement *let_statement);
@@ -190,6 +200,7 @@ char *identifier_to_string(struct identifier *identifier);
 char *string_literal_to_string(struct string_literal *string_literal);
 char *integer_literal_to_string(struct integer_literal *integer_literal);
 char *array_literal_to_string(struct array_literal *array_literal);
+char *hash_literal_to_string(struct hash_literal *hash_literal);
 char *function_literal_to_string(struct function_literal *function_literal);
 char *boolean_to_string(struct boolean *boolean);
 char *let_statement_to_string(struct let_statement *let_statement);
@@ -206,6 +217,7 @@ struct identifier *identifier_alloc(struct token token);
 struct string_literal *string_literal_alloc(struct token token);
 struct integer_literal *integer_literal_alloc(struct token token);
 struct array_literal *array_literal_alloc(struct token token);
+struct hash_literal *hash_literal_alloc(struct token token);
 struct function_literal *function_literal_alloc(struct token token);
 void function_literal_addref(struct function_literal *function_literal);
 struct boolean *boolean_alloc(struct token token, bool value);
@@ -225,6 +237,7 @@ void identifier_destroy(struct identifier *identifier);
 void string_literal_destroy(struct string_literal *string_literal);
 void integer_literal_destroy(struct integer_literal *integer_literal);
 void array_literal_destroy(struct array_literal *array_literal);
+void hash_literal_destroy(struct hash_literal *hash_literal);
 void function_literal_destroy(struct function_literal *function_literal);
 void boolean_destroy(struct boolean *boolean);
 void let_statement_destroy(struct let_statement *let_statement);

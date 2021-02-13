@@ -153,6 +153,18 @@ static struct object *push(Seq_T args)
                                                 object_type_str[arg->type]);
 }
 
+static struct object *putz(Seq_T args)
+{
+    struct object *object;
+    
+    for (int i = 0; i < Seq_length(args); i++)
+    {
+        object = (struct object *) Seq_get(args, i);
+        puts(object_inspect(object));
+    }
+    return (struct object *) &null_object;
+}
+
 struct object *builtins_get(struct identifier *identifier)
 {
     struct object *object;
@@ -177,7 +189,8 @@ void builtins_init(void)
           { {sizeof "first" - 1, "first"}, {BUILTIN_OBJ, 1, first} },
           { {sizeof "last" - 1, "last"}, {BUILTIN_OBJ, 1, last} },
           { {sizeof "rest" - 1, "rest"}, {BUILTIN_OBJ, 1, rest} },
-          { {sizeof "push" - 1, "push"}, {BUILTIN_OBJ, 1, push} }
+          { {sizeof "push" - 1, "push"}, {BUILTIN_OBJ, 1, push} },
+          { {sizeof "puts" - 1, "puts"}, {BUILTIN_OBJ, 1, putz} }
       };
     builtins = Table_new(0, text_cmp, text_hash);
     for (int i = 0; i < sizeof identifier_builtins / sizeof identifier_builtins[0]; i++)
@@ -186,3 +199,4 @@ void builtins_init(void)
                   &identifier_builtins[i].builtin);
     }
 }
+

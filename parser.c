@@ -346,6 +346,7 @@ cleanup:
             identifier_destroy(identifier);
         }
         Seq_free(&parameters);
+        parameters = NULL;
     }
     return parameters;
 }
@@ -494,6 +495,7 @@ cleanup:
             expression_destroy(expression);
         }
         Seq_free(&expressions);
+        expressions = NULL;
     }
     return expressions;
 }
@@ -516,6 +518,55 @@ static struct array_literal *parse_array_literal(struct parser *parser)
     array_literal = array_literal_alloc(parser->cur_token);
     array_literal->elements = parse_expression_list(parser, RBRAKET);
     return array_literal;
+}
+
+static struct hash_literal *parse_hash_literal(struct parser *parser)
+{
+    struct hash_literal *hash_literal;
+    struct expression *expression;
+    bool success = false;
+
+    hash_literal = hash_literal_alloc(parser->cur_token);
+    hash_literal->keys = Seq_new(10);
+    hash_literal->values  = Seq_new(10);
+    while (!peek_token_is(parser, RBRACE))
+    {
+        next_token(parser);
+        expression = parse_expression(parser, LOWEST_PREC);
+        if (expression == NULL)
+        {
+            goto cleanup;
+        }
+        Seq_addhi(hash_literal->keys, expression);
+        if (!expect_peek(parser, COLON))
+        {
+            goto cleanup;
+        }
+        next_token(parser);
+        expression = parse_expression(parser, LOWEST_PREC);
+        if (expression == NULL)
+        {
+            goto cleanup;
+        }
+        Seq_addhi(hash_literal->values, expression);
+        if (!peek_token_is(parser, RBRACE) && !expect_peek(parser, COMMA))
+        {
+            goto cleanup;
+        }
+    }
+    if (!expect_peek(parser, RBRACE))
+    {
+        goto cleanup;
+    }
+    success = true;
+
+cleanup:
+    if (!success)
+    {
+        hash_literal_destroy(hash_literal);
+        hash_literal = NULL;
+    }
+    return hash_literal;
 }
 
 static struct expression *parse_index_expression(struct parser *parser,
@@ -564,6 +615,7 @@ void parser_init(void)
           {STRING, {(struct expression *(*)(struct parser *)) parse_string_literal}},
           {INT, {(struct expression *(*)(struct parser *)) parse_integer_literal}},
           {LBRAKET, {(struct expression *(*)(struct parser *)) parse_array_literal}},
+          {LBRACE, {(struct expression *(*)(struct parser *)) parse_hash_literal}},
           {TRUE, {(struct expression *(*)(struct parser *)) parse_boolean}},
           {FALSE, {(struct expression *(*)(struct parser *)) parse_boolean}},
           {BANG, {parse_prefix_expression}},

@@ -13,6 +13,7 @@ const char *object_type_str [] =
     [BOOLEAN_OBJ] = "BOOLEAN",
     [STRING_OBJ] = "STRING",
     [ARRAY_OBJ] = "ARRAY",
+    [HASH_OBJ] = "HASH",
     [FUNC_OBJ] = "FUNC",
     [BUILTIN_OBJ] = "BUILTIN",
     [RETURN_VALUE_OBJ] = "RETURN VALUE",
@@ -23,6 +24,75 @@ const char *object_type_str [] =
 struct boolean_object true_object = { BOOLEAN_OBJ, 1, true, "true" };
 struct boolean_object false_object  = { BOOLEAN_OBJ, 1, false, "false" };
 struct null_object null_object = { NULL_OBJ, 1, "null" };
+
+int object_cmp(const void *x, const void *y)
+{
+    struct object *o1 = (struct object *) x;
+    struct object *o2 = (struct object *) y;
+    int diff;
+
+    diff = o1->type - o2->type;
+    if (diff != 0)
+    {
+        return diff;
+    }
+    switch (o1->type)
+    {
+    case INTEGER_OBJ:
+    {
+        return ((struct integer_object *) o1)->value -
+            ((struct integer_object *) o2)->value;
+    }
+    case BOOLEAN_OBJ:
+    {
+        return ((struct boolean_object *) o1)->value -
+            ((struct boolean_object *) o2)->value;
+    }
+    case STRING_OBJ:
+    {
+        return Str_cmp(((struct string_object *) o1)->value, 1, 0,
+                       ((struct string_object *) o1)->value, 1, 0);
+    }
+    default:
+    {
+        break;
+    }
+    }
+    return 0;
+}
+
+unsigned object_hash(const void *x)
+{
+    struct object *o = (struct object *) x;
+    const char *str;
+    unsigned h = 0;
+
+    switch (o->type)
+    {
+    case INTEGER_OBJ:
+    {
+        return ((struct integer_object *) o)->value;
+    }
+    case BOOLEAN_OBJ:
+    {
+        return ((struct boolean_object *) o)->value;
+    }
+    case STRING_OBJ:
+    {
+        str = ((struct string_object *) o)->value;
+        while (*str)
+        {
+            h = (h<<1) + *str++;
+        }
+        return h;       
+    }
+    default:
+    {
+        break;
+    }
+    }
+    return 0;      
+}
 
 static void integer_object_destroy(struct integer_object *integer)
 {
@@ -64,6 +134,25 @@ static void array_object_destroy(struct array_object *array)
 static char *array_object_inspect(struct array_object *array)
 {
     return array->inspect;
+}
+
+static void free_pairs(const void *key, void **value, void *cl)
+{
+    object_destroy((struct object *) key);
+    object_destroy((struct object *) *value);
+}
+
+static void hash_object_destroy(struct hash_object *hash)
+{
+    Table_map(hash->pairs, free_pairs, NULL);
+    Table_free(&hash->pairs);
+    FREE(hash->inspect);
+    FREE(hash);
+}
+
+static char *hash_object_inspect(struct hash_object *hash)
+{
+    return hash->inspect;
 }
 
 static void function_object_destroy(struct function_object *function)
@@ -142,6 +231,11 @@ void object_destroy(struct object *object)
         array_object_destroy((struct array_object *) object);
         break;
     }
+    case HASH_OBJ:
+    {
+        hash_object_destroy((struct hash_object *) object);
+        break;
+    }
     case FUNC_OBJ:
     {
         function_object_destroy((struct function_object *) object);
@@ -182,6 +276,10 @@ char *object_inspect(struct object *object)
     case ARRAY_OBJ:
     {
         return array_object_inspect((struct array_object *) object);
+    }
+    case HASH_OBJ:
+    {
+        return hash_object_inspect((struct hash_object *) object);
     }
     case FUNC_OBJ:
     {
@@ -245,7 +343,6 @@ struct array_object *array_object_alloc(Seq_T elements)
     str1 = Str_dup("[", 1, 0, 1);
     if (Seq_length(array->elements) > 0)
     {
-        
         object = (struct object *) Seq_get(array->elements, 0);
         str2 = object_inspect(object);
         str = Str_cat(str1, 1, 0, str2, 1, 0);
@@ -264,6 +361,49 @@ struct array_object *array_object_alloc(Seq_T elements)
     FREE(str1);
     array->inspect = str;
     return array;
+}
+
+struct hash_object *hash_object_alloc(Table_T pairs)
+{
+    struct hash_object *hash;
+    struct object *object;
+    int i = 0;
+    void **array;
+    char *str;
+    char *str1;
+    char *str2;
+    char *str3;
+
+    NEW0(hash);
+    hash->type = HASH_OBJ;
+    hash->cnt = 1;
+    hash->pairs = pairs;
+    array = Table_toArray(hash->pairs, NULL);
+    str1 = Str_dup("{", 1, 0, 1);
+    if (array[i] != NULL)
+    {
+        object = (struct object *) array[i++];
+        str2 = object_inspect(object);
+        object = (struct object *) array[i++];
+        str3 = object_inspect(object);
+        str = Str_catv(str1, 1, 0, str2, 1, 0, ":", 1, 0, str3, 1, 0, NULL);
+        FREE(str1);
+        str1 = str;
+        while (array[i] != NULL)
+        {
+            object = (struct object *) array[i++];
+            str2 = object_inspect(object);
+            object = (struct object *) array[i++];
+            str3 = object_inspect(object);
+            str = Str_catv(str1, 1, 0, ", ", 1, 0, str2, 1, 0, ":", 1, 0, str3, 1, 0, NULL);
+            FREE(str1);
+            str1 = str;
+        }
+    }
+    str = Str_cat(str1, 1, 0, "}", 1, 0);
+    FREE(str1);
+    hash->inspect = str;
+    return hash;
 }
 
 struct function_object *function_object_alloc(struct function_literal *value,
@@ -360,4 +500,10 @@ struct error_object *error_object_alloc(const char *value, ...)
     Fmt_vsfmt(error->value, sizeof error->value, value, &box);
     va_end(box.ap);
     return error;
+}
+
+void free_hash_pairs(const void *key, void **value, void *cl)
+{
+    object_destroy((struct object *) key);
+    object_destroy((struct object *) *value);   
 }

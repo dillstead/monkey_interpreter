@@ -474,6 +474,48 @@ static struct object *eval_array_literal(struct array_literal *array_literal,
     return (struct object *) array_object_alloc(elements);
 }
 
+static struct object *eval_hash_literal(struct hash_literal *hash_literal,
+                                        struct environment *env)
+{
+    struct object *object = NULL;
+    struct object *key;
+    struct object *value;
+    Table_T pairs;
+
+    pairs = Table_new(Seq_length(hash_literal->keys), object_cmp, object_hash);
+    for (int i = 0; i < Seq_length(hash_literal->keys); i++)
+    {
+        key = eval((struct node *) Seq_get(hash_literal->keys, i), env);
+        if (key->type == ERROR_OBJ)
+        {
+            object = key;
+            goto cleanup;
+        }
+        if (!is_object_hash_key(key))
+        {
+            object = (struct object *) error_object_alloc("unusable as hash key, got %s", 
+                                                          object_type_str[key->type]);
+            goto cleanup;
+        }
+        value = eval((struct node *) Seq_get(hash_literal->values, i), env);
+        if (value->type == ERROR_OBJ)
+        {
+            object = value;
+            goto cleanup;
+        }
+        Table_put(pairs, key, value);
+    }
+    
+cleanup:
+    if (object != NULL && object->type == ERROR_OBJ)
+    {
+        Table_map(pairs, free_hash_pairs, NULL);
+        Table_free(&pairs);
+        return object;
+    }
+    return (struct object *) hash_object_alloc(pairs);
+}
+
 static struct object *eval_array_index_expression(struct object *left, struct object *index)
 {
     struct array_object *array = (struct array_object *) left;
@@ -485,6 +527,25 @@ static struct object *eval_array_index_expression(struct object *left, struct ob
         return (struct object *) &null_object;
     }
     object = (struct object *) Seq_get(array->elements, index_value);
+    object_addref(object);
+    return object;
+}
+
+static struct object *eval_hash_index_expression(struct object *left, struct object *index)
+{
+    struct hash_object *hash = (struct hash_object *) left;
+    struct object *object;
+
+    if (!is_object_hash_key(index))
+    {
+        return (struct object *) error_object_alloc("unusable as hash key, got %s", 
+                                                    object_type_str[index->type]);
+    }
+    object = (struct object *) Table_get(hash->pairs, index);
+    if (object == NULL)
+    {
+        return (struct object *) &null_object;
+    }
     object_addref(object);
     return object;
 }
@@ -510,6 +571,10 @@ static struct object *eval_index_expression(struct index_expression *index_expre
     if (left->type == ARRAY_OBJ && index->type == INTEGER_OBJ)
     {
         object = eval_array_index_expression(left, index);
+    }
+    else if (left->type == HASH_OBJ)
+    {
+        object = eval_hash_index_expression(left, index);
     }
     else
     {
@@ -552,6 +617,10 @@ struct object *eval(struct node *node, struct environment *env)
     case ARRAY_LITERAL_EXPR:
     {
         return eval_array_literal((struct array_literal *) node, env);
+    }
+    case HASH_LITERAL_EXPR:
+    {
+        return eval_hash_literal((struct hash_literal *) node, env);
     }
     case INDEX_EXPR:
     {

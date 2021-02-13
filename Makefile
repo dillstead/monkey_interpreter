@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS += -c -Wall -ansi -pedantic -std=c99 -I ./cii/include -g
+CFLAGS += -c -Wall -pedantic -std=c99 -I ./cii/include -g
 LDFLAGS = -L./cii
 LDLIBS = -lcii
 

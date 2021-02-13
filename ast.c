@@ -16,6 +16,7 @@ const char *node_type_str [] =
     [STRING_LITERAL_EXPR] = "STRING_LITERAL",
     [INT_LITERAL_EXPR] = "INT_LITERAL",
     [ARRAY_LITERAL_EXPR] = "ARRAY_LITERAL",
+    [HASH_LITERAL_EXPR] = "HASH_LITERAL",
     [FUNC_LITERAL_EXPR] = "FUNC_LITERAL",
     [INDEX_EXPR] = "INDEX EXPR",
     [PREFIX_EXPR] = "PREFIX EXPR",
@@ -45,6 +46,10 @@ Text_T expression_token_literal(struct expression *expression)
     case ARRAY_LITERAL_EXPR:
     {
         return array_literal_token_literal((struct array_literal *) expression);
+    }
+    case HASH_LITERAL_EXPR:
+    {
+        return hash_literal_token_literal((struct hash_literal *) expression);
     }
     case FUNC_LITERAL_EXPR:
     {
@@ -142,6 +147,11 @@ Text_T array_literal_token_literal(struct array_literal *array_literal)
     return array_literal->token.literal;
 }
 
+Text_T hash_literal_token_literal(struct hash_literal *hash_literal)
+{
+    return hash_literal->token.literal;
+}
+
 Text_T function_literal_token_literal(struct function_literal *function_literal)
 {
     return function_literal->token.literal;
@@ -217,6 +227,10 @@ char *expression_to_string(struct expression *expression)
     case ARRAY_LITERAL_EXPR:
     {
         return array_literal_to_string((struct array_literal *) expression);
+    }
+    case HASH_LITERAL_EXPR:
+    {
+        return hash_literal_to_string((struct hash_literal *) expression);
     }
     case FUNC_LITERAL_EXPR:
     {
@@ -369,6 +383,44 @@ char *array_literal_to_string(struct array_literal *array_literal)
         }
     }
     str = Str_cat(str1, 1, 0, "]", 1, 0);
+    FREE(str1);
+    return str;
+}
+
+char *hash_literal_to_string(struct hash_literal *hash_literal)
+{
+    struct expression *expression;
+    char *str;
+    char *str1;
+    char *str2;
+    char *str3;
+    
+    str1 = Str_dup("{", 1, 0, 1);
+    if (Seq_length(hash_literal->keys) > 0)
+    {
+        expression = (struct expression *) Seq_get(hash_literal->keys, 0);
+        str2 = expression_to_string(expression);
+        expression = (struct expression *) Seq_get(hash_literal->values, 0);
+        str3 = expression_to_string(expression);
+        str = Str_catv(str1, 1, 0, str2, 1, 0, " : ", 1, 0, str3, 1, 0, NULL);
+        FREE(str3);
+        FREE(str2);
+        FREE(str1);
+        str1 = str;
+        for (int i = 1; i < Seq_length(hash_literal->keys); i++)
+        {
+            expression = (struct expression *) Seq_get(hash_literal->keys, i);
+            str2 = expression_to_string(expression);
+            expression = (struct expression *) Seq_get(hash_literal->values, 0);
+            str3 = expression_to_string(expression);
+            str = Str_catv(str1, 1, 0, ", ", 1, 0, str2, 1, 0, " : ", 1, 0, str3, 1, 0);
+            FREE(str3);
+            FREE(str2);
+            FREE(str1);
+            str1 = str;
+        }
+    }
+    str = Str_cat(str1, 1, 0, "}", 1, 0);
     FREE(str1);
     return str;
 }
@@ -652,6 +704,11 @@ void expression_destroy(struct expression *expression)
         array_literal_destroy((struct array_literal *) expression);
         break;
     }
+    case HASH_LITERAL_EXPR:
+    {
+        hash_literal_destroy((struct hash_literal *) expression);
+        break;
+    }
     case FUNC_LITERAL_EXPR:
     {
         function_literal_destroy((struct function_literal *) expression);
@@ -816,6 +873,17 @@ struct array_literal *array_literal_alloc(struct token token)
     token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     array_literal->token = token;
     return array_literal;
+}
+
+struct hash_literal *hash_literal_alloc(struct token token)
+{
+    struct hash_literal *hash_literal;
+
+    NEW0(hash_literal);
+    hash_literal->type = HASH_LITERAL_EXPR;
+    token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
+    hash_literal->token = token;
+    return hash_literal;
 }
 
 struct function_literal *function_literal_alloc(struct token token)
@@ -1127,6 +1195,32 @@ void array_literal_destroy(struct array_literal *array_literal)
     c = (char *) array_literal->token.literal.str;
     FREE(c);
     FREE(array_literal);
+}
+
+void hash_literal_destroy(struct hash_literal *hash_literal)
+{
+    struct expression *expression;
+    char *c;
+        
+    if (hash_literal == NULL)
+    {
+        return;
+    }
+    if (hash_literal->keys != NULL)
+    {
+        for (int i = 0; i < Seq_length(hash_literal->keys); i++)
+        {
+            expression = (struct expression *) Seq_get(hash_literal->keys, i);
+            expression_destroy(expression);
+            expression = (struct expression *) Seq_get(hash_literal->values, i);
+            expression_destroy(expression);
+        }
+        Seq_free(&hash_literal->keys);
+        Seq_free(&hash_literal->values);
+    }
+    c = (char *) hash_literal->token.literal.str;
+    FREE(c);
+    FREE(hash_literal);
 }
 
 void function_literal_destroy(struct function_literal *function_literal)
