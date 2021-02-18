@@ -768,6 +768,11 @@ void statement_destroy(struct statement *statement)
         return_statement_destroy((struct return_statement *) statement);
         break;
     }
+    case EXPR_STMT:
+    {
+        expression_statement_destroy((struct expression_statement *) statement);
+        break;
+    }
     default:
     {
     }
@@ -895,7 +900,6 @@ struct function_literal *function_literal_alloc(struct token token)
     token.literal = Text_box(Text_get(NULL, 0, token.literal), token.literal.len);
     function_literal->token = token;
     function_literal->cnt = 1;
-    function_literal->parameters = Seq_new(10);
     return function_literal;
 }
 

@@ -137,8 +137,6 @@ static int test_identifier_expression(void)
     struct expression_statement *expression_statement = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -197,8 +195,6 @@ static int test_string_literal_expression(void)
     struct expression_statement *expression_statement = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -251,8 +247,6 @@ static int test_integer_literal_expression(void)
     struct expression_statement *expression_statement = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -318,8 +312,6 @@ static int test_boolean_expression(void)
     struct expression_statement *expression_statement = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         lexer = lexer_alloc(tests[i].input);
@@ -351,16 +343,21 @@ static int test_boolean_expression(void)
         {
             goto cleanup;
         }
+        program_destroy(program);
+        program = NULL;
+        lexer_destroy(lexer);
+        parser_destroy(parser);
     }
     success = 0;
 
 cleanup:
+    
     if (program != NULL)
     {
         program_destroy(program);
+        lexer_destroy(lexer);
+        parser_destroy(parser);
     }
-    lexer_destroy(lexer);
-    parser_destroy(parser);
     return success;
 }
 
@@ -441,8 +438,6 @@ static int test_let_statements(void)
     struct statement *statement = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         lexer = lexer_alloc(tests[i].input);
@@ -472,9 +467,7 @@ static int test_let_statements(void)
         program_destroy(program);
         program = NULL;
         lexer_destroy(lexer);
-        lexer = NULL;
         parser_destroy(parser);
-        parser = NULL;
     }
     success = 0;
 
@@ -482,13 +475,7 @@ cleanup:
     if (program != NULL)
     {
         program_destroy(program);
-    }
-    if (lexer != NULL)
-    {
         lexer_destroy(lexer);
-    }
-    if (parser != NULL)
-    {
         parser_destroy(parser);
     }
     return success;
@@ -515,8 +502,6 @@ static int test_return_statements(void)
     struct return_statement *return_statement = NULL;
     int success = -1;
     
-    lexer_init();
-    parser_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         lexer = lexer_alloc(tests[i].input);
@@ -557,9 +542,7 @@ static int test_return_statements(void)
         program_destroy(program);
         program = NULL;
         lexer_destroy(lexer);
-        lexer = NULL;
         parser_destroy(parser);
-        parser = NULL;
     }
     success = 0;
 
@@ -567,13 +550,7 @@ cleanup:
     if (program != NULL)
     {
         program_destroy(program);
-    }
-    if (lexer != NULL)
-    {
         lexer_destroy(lexer);
-    }
-    if (parser != NULL)
-    {
         parser_destroy(parser);
     }
     return success;
@@ -660,8 +637,6 @@ static int test_prefix_expressions(void)
     struct expression_statement *expression_statement = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         lexer = lexer_alloc(tests[i].input);
@@ -698,9 +673,7 @@ static int test_prefix_expressions(void)
         program_destroy(program);
         program = NULL;
         lexer_destroy(lexer);
-        lexer = NULL;
         parser_destroy(parser);
-        parser = NULL;
     }
     success = 0;
 
@@ -708,13 +681,7 @@ cleanup:
     if (program != NULL)
     {
         program_destroy(program);
-    }
-    if (lexer != NULL)
-    {
         lexer_destroy(lexer);
-    }
-    if (parser != NULL)
-    {
         parser_destroy(parser);
     }
     return success;
@@ -748,8 +715,6 @@ static int test_infix_expressions(void)
     struct expression_statement *expression_statement = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         lexer = lexer_alloc(tests[i].input);
@@ -786,9 +751,7 @@ static int test_infix_expressions(void)
         program_destroy(program);
         program = NULL;
         lexer_destroy(lexer);
-        lexer = NULL;
         parser_destroy(parser);
-        parser = NULL;
     }
     success = 0;
 
@@ -796,13 +759,7 @@ cleanup:
     if (program != NULL)
     {
         program_destroy(program);
-    }
-    if (lexer != NULL)
-    {
         lexer_destroy(lexer);
-    }
-    if (parser != NULL)
-    {
         parser_destroy(parser);
     }
     return success;       
@@ -819,8 +776,6 @@ static int test_array_literal_expression(void)
     struct array_literal *array_literal = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -896,8 +851,6 @@ static int test_empty_array_literal_expression(void)
     struct array_literal *array_literal = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -958,8 +911,6 @@ static int test_hash_literal_expression(void)
     struct hash_literal *hash_literal = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -1038,8 +989,6 @@ static int test_empty_hash_literal_expression(void)
     struct hash_literal *hash_literal = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -1101,8 +1050,6 @@ static int test_index_expression(void)
     struct index_expression *index_expression = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -1168,8 +1115,6 @@ static int test_if_expression(void)
     char *str;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -1259,8 +1204,6 @@ static int test_if_else_expression(void)
     struct if_expression *if_expression = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -1461,9 +1404,6 @@ static int test_operator_precedence_parsing()
     char *actual = NULL;
     int success = -1;
 
-
-    lexer_init();
-    parser_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         lexer = lexer_alloc(tests[i].input);
@@ -1494,9 +1434,7 @@ static int test_operator_precedence_parsing()
         program_destroy(program);
         program = NULL;
         lexer_destroy(lexer);
-        lexer = NULL;
         parser_destroy(parser);
-        parser = NULL;
     }
     success = 0;
 
@@ -1508,13 +1446,7 @@ cleanup:
     if (program != NULL)
     {
         program_destroy(program);
-    }
-    if (lexer != NULL)
-    {
         lexer_destroy(lexer);
-    }
-    if (parser != NULL)
-    {
         parser_destroy(parser);
     }
     return success;
@@ -1531,8 +1463,6 @@ static int test_function_literal_parsing(void)
     struct function_literal *function_literal = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -1641,8 +1571,6 @@ static int test_function_parameter_parsing()
     struct function_literal *function_literal = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         lexer = lexer_alloc(tests[i].input);
@@ -1694,9 +1622,7 @@ static int test_function_parameter_parsing()
         program_destroy(program);
         program = NULL;
         lexer_destroy(lexer);
-        lexer = NULL;
         parser_destroy(parser);
-        parser = NULL;
     }
     success = 0;
 
@@ -1704,13 +1630,7 @@ cleanup:
     if (program != NULL)
     {
         program_destroy(program);
-    }
-    if (lexer != NULL)
-    {
         lexer_destroy(lexer);
-    }
-    if (parser != NULL)
-    {
         parser_destroy(parser);
     }
     return success;
@@ -1727,8 +1647,6 @@ static int test_call_expression_parsing(void)
     struct call_expression *call_expression = NULL;
     int success = -1;
 
-    lexer_init();
-    parser_init();
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
@@ -1806,6 +1724,8 @@ cleanup:
 
 int main(void)
 {
+    lexer_init();
+    parser_init();
     if (test_let_statements() != 0)
     {
         return EXIT_FAILURE;
