@@ -3,8 +3,10 @@
 #include <stdarg.h>
 #include <mem.h>
 #include <str.h>
+#include <seq.h>
 
 #include "object.h"
+#include "util.h"
 #include "ast.h"
 
 const char *object_type_str [] =
@@ -17,13 +19,16 @@ const char *object_type_str [] =
     [FUNC_OBJ] = "FUNC",
     [BUILTIN_OBJ] = "BUILTIN",
     [RETURN_VALUE_OBJ] = "RETURN VALUE",
+    [ENV_OBJ] = "ENV",
     [NULL_OBJ] = "NULL",
     [ERROR_OBJ] = "ERROR"
 };
-    
-struct boolean_object true_object = { BOOLEAN_OBJ, 1, true, "true" };
-struct boolean_object false_object  = { BOOLEAN_OBJ, 1, false, "false" };
-struct null_object null_object = { NULL_OBJ, 1, "null" };
+
+static Seq_T allocated_objects;
+struct boolean_object true_object = { BOOLEAN_OBJ, false, true, "true" };
+struct boolean_object false_object  = { BOOLEAN_OBJ, false, false, "false" };
+struct null_object null_object = { NULL_OBJ, false, "null" };
+static void objects_mark(struct object *object);
 
 int object_cmp(const void *x, const void *y)
 {
@@ -82,7 +87,7 @@ unsigned object_hash(const void *x)
         str = ((struct string_object *) o)->value;
         while (*str)
         {
-            h = (h<<1) + *str++;
+            h = (h << 1) + *str++;
         }
         return h;       
     }
@@ -92,6 +97,27 @@ unsigned object_hash(const void *x)
     }
     }
     return 0;      
+}
+
+static Text_T *copy_text(Text_T t)
+{
+    Text_T *p;
+
+    NEW0(p);
+    *p = Text_box(Text_get(NULL, 0, t), t.len);
+    return p;
+}
+
+static void free_text(Text_T *t)
+{
+    char *c = (char *) t->str;
+    FREE(c);
+    FREE(t);
+}
+
+static void free_store(const void *key, void **value, void *cl)
+{
+    free_text((Text_T *) key);
 }
 
 static void integer_object_destroy(struct integer_object *integer)
@@ -122,10 +148,6 @@ static char *string_object_inspect(struct string_object *string)
 
 static void array_object_destroy(struct array_object *array)
 {
-    for (int i = 0; i < Seq_length(array->elements); i++)
-    {
-        object_destroy((struct object *) Seq_get(array->elements, i));
-    }
     Seq_free(&array->elements);
     FREE(array->inspect);
     FREE(array);
@@ -136,15 +158,8 @@ static char *array_object_inspect(struct array_object *array)
     return array->inspect;
 }
 
-static void free_pairs(const void *key, void **value, void *cl)
-{
-    object_destroy((struct object *) key);
-    object_destroy((struct object *) *value);
-}
-
 static void hash_object_destroy(struct hash_object *hash)
 {
-    Table_map(hash->pairs, free_pairs, NULL);
     Table_free(&hash->pairs);
     FREE(hash->inspect);
     FREE(hash);
@@ -158,7 +173,6 @@ static char *hash_object_inspect(struct hash_object *hash)
 static void function_object_destroy(struct function_object *function)
 {
     function_literal_destroy(function->value);
-    environment_destroy(function->env);
     FREE(function->inspect);
     FREE(function);
 }
@@ -198,22 +212,20 @@ static char *error_object_inspect(struct error_object *error)
     return error->value;
 }
 
+static void env_object_destroy(struct env_object *env)
+{
+    Table_map(env->store, free_store, NULL);
+    Table_free(&env->store);
+    FREE(env);
+}
+
 enum object_type object_type(struct object *object)
 {
     return object->type;
 }
 
-void object_addref(struct object *object)
-{
-    object->cnt++;
-}
-
 void object_destroy(struct object *object)
 {
-    if (--object->cnt > 0)
-    {
-        return;
-    }
     switch (object->type)
     {
     case INTEGER_OBJ:
@@ -244,6 +256,11 @@ void object_destroy(struct object *object)
     case RETURN_VALUE_OBJ:
     {
         return_value_destroy((struct return_value *) object);
+        break;
+    }
+    case ENV_OBJ:
+    {
+        env_object_destroy((struct env_object *) object);
         break;
     }
     case ERROR_OBJ:
@@ -301,6 +318,10 @@ char *object_inspect(struct object *object)
     {
         return error_object_inspect((struct error_object *) object);
     }
+    default:
+    {
+        return NULL;
+    }
     }
     return NULL;
 }
@@ -311,9 +332,9 @@ struct integer_object *integer_object_alloc(long long value)
     
     NEW0(integer);
     integer->type = INTEGER_OBJ;
-    integer->cnt = 1;
     integer->value = value;
     snprintf(integer->inspect, sizeof integer->inspect, "%lld", integer->value);
+    Seq_addhi(allocated_objects, integer);
     return integer;
 }
 
@@ -323,8 +344,8 @@ struct string_object *string_object_alloc(Text_T value)
     
     NEW0(string);
     string->type = STRING_OBJ;
-    string->cnt = 1;
     string->value = Text_get(NULL, 0, value);
+    Seq_addhi(allocated_objects, string);
     return string;
 }
 
@@ -338,7 +359,6 @@ struct array_object *array_object_alloc(Seq_T elements)
     
     NEW0(array);
     array->type = ARRAY_OBJ;
-    array->cnt = 1;
     array->elements = elements;
     str1 = Str_dup("[", 1, 0, 1);
     if (Seq_length(array->elements) > 0)
@@ -360,6 +380,7 @@ struct array_object *array_object_alloc(Seq_T elements)
     str = Str_cat(str1, 1, 0, "]", 1, 0);
     FREE(str1);
     array->inspect = str;
+    Seq_addhi(allocated_objects, array);
     return array;
 }
 
@@ -376,7 +397,6 @@ struct hash_object *hash_object_alloc(Table_T pairs)
 
     NEW0(hash);
     hash->type = HASH_OBJ;
-    hash->cnt = 1;
     hash->pairs = pairs;
     array = Table_toArray(hash->pairs, NULL);
     str1 = Str_dup("{", 1, 0, 1);
@@ -400,14 +420,16 @@ struct hash_object *hash_object_alloc(Table_T pairs)
             str1 = str;
         }
     }
+    FREE(array);
     str = Str_cat(str1, 1, 0, "}", 1, 0);
     FREE(str1);
     hash->inspect = str;
+    Seq_addhi(allocated_objects, hash);
     return hash;
 }
 
 struct function_object *function_object_alloc(struct function_literal *value,
-                                              struct environment *env)
+                                              struct env_object *env)
 {
     struct function_object *function;
     struct identifier *identifier;
@@ -417,10 +439,8 @@ struct function_object *function_object_alloc(struct function_literal *value,
 
     NEW0(function);
     function->type = FUNC_OBJ;
-    function->cnt = 1;
     function_literal_addref(value);
     function->value = value;
-    environment_addref(env);
     function->env = env;
     str = ALLOC(sizeof "fn(");
     Fmt_sfmt(str, sizeof "fn(", "fn(");
@@ -454,6 +474,7 @@ struct function_object *function_object_alloc(struct function_literal *value,
     str = Str_cat(str1, 1, 0, "\n", 1, 0);
     FREE(str1);
     function->inspect = str;
+    Seq_addhi(allocated_objects, function);
     return function;
 }
 
@@ -463,29 +484,14 @@ struct return_value *return_value_alloc(struct object *value)
     
     NEW0(return_value);
     return_value->type = RETURN_VALUE_OBJ;
-    return_value->cnt = 1;
     return_value->value = value;
+    Seq_addhi(allocated_objects, return_value);
     return return_value;
 }
 
 struct boolean_object *boolean_object_alloc(bool value)
 {
-    if (value)
-    {
-        true_object.cnt++;
-        return &true_object;
-    }
-    else
-    {
-        false_object.cnt++;
-        return &false_object;
-    }
-}
-
-struct null_object *null_object_alloc(void)
-{
-    null_object.cnt++;
-    return &null_object;
+    return value ? &true_object : &false_object;
 }
 
 struct error_object *error_object_alloc(const char *value, ...)
@@ -495,15 +501,179 @@ struct error_object *error_object_alloc(const char *value, ...)
     
     NEW0(error);
     error->type = ERROR_OBJ;
-    error->cnt = 1;
     va_start(box.ap, value);
     Fmt_vsfmt(error->value, sizeof error->value, value, &box);
     va_end(box.ap);
+    Seq_addhi(allocated_objects, error);
     return error;
 }
 
-void free_hash_pairs(const void *key, void **value, void *cl)
+struct env_object *env_object_alloc(struct env_object *outer)
 {
-    object_destroy((struct object *) key);
-    object_destroy((struct object *) *value);   
+    struct env_object *env;
+
+    NEW0(env);
+    env->type = ENV_OBJ;
+    env->store = Table_new(0, text_cmp, text_hash);
+    env->outer = outer;
+    Seq_addhi(allocated_objects, env);
+    return env;
+}
+
+struct object *env_get(struct env_object *env, Text_T name)
+{
+    struct object *value;
+    
+    value = (struct object *) Table_get(env->store, &name);
+    if (value == NULL && env->outer != NULL)
+    {
+        value = env_get(env->outer, name);
+    }
+    return value;
+}
+
+struct object *env_set(struct env_object *env, Text_T name, struct object *value)
+{
+    struct object *prev = NULL;
+
+    if (Table_get(env->store, &name) != NULL)
+    {
+        prev = (struct object *) Table_put(env->store, &name, value);
+    }
+    else
+    {
+        Table_put(env->store, copy_text(name), value);
+        
+    }
+    return prev;
+}
+
+void objects_init(void)
+{
+    allocated_objects = Seq_new(100);
+}
+
+static void array_object_mark(struct array_object *array)
+{
+    struct object *object;
+    
+    array->marked = true;
+    for (int i = 1; i < Seq_length(array->elements); i++)
+    {
+        object = (struct object *) Seq_get(array->elements, i);
+        objects_mark(object);
+    }
+}
+
+static void mark_hash_pairs(const void *key, void **value, void *cl)
+{
+    objects_mark((struct object *) key);
+    objects_mark((struct object *) *value);
+}
+
+static void hash_object_mark(struct hash_object *hash)
+{
+    hash->marked = true;
+    Table_map(hash->pairs, mark_hash_pairs, NULL);
+}
+
+static void return_value_mark(struct return_value *return_value)
+{
+    return_value->marked = true;
+    objects_mark(return_value->value);
+}
+
+static void function_object_mark(struct function_object *function)
+{
+    function->marked = true;
+    objects_mark((struct object *) function->env);
+}
+
+static void mark_store(const void *key, void **value, void *cl)
+{
+    objects_mark((struct object *) *value);   
+}
+
+static void env_object_mark(struct env_object *env)
+{
+    env->marked = true;
+    Table_map(env->store, mark_store, NULL);
+    
+}
+
+static void objects_mark(struct object *object)
+{
+    if (object->marked)
+    {
+        return;
+    }
+    switch (object->type)
+    {
+    case INTEGER_OBJ:
+    case STRING_OBJ:
+    case ERROR_OBJ:
+    {
+        object->marked = true;
+        break;
+    }
+    case ARRAY_OBJ:
+    {
+        array_object_mark((struct array_object *) object);
+        break;
+    }
+    case HASH_OBJ:
+    {
+        hash_object_mark((struct hash_object *) object);
+        break;
+    }
+    case FUNC_OBJ:
+    {
+        function_object_mark((struct function_object *) object);
+        break;
+    }
+    case RETURN_VALUE_OBJ:
+    {
+        return_value_mark((struct return_value *) object);
+        break;
+    }
+    case ENV_OBJ:
+    {
+        env_object_mark((struct env_object *) object);
+        break;
+    }
+    default:
+    {
+    }
+    }    
+}
+
+void objects_gc(struct env_object *env)
+{
+    int len;
+    struct object *object;
+
+    objects_mark((struct object *) env);
+    len = Seq_length(allocated_objects);
+    for (int i = 0; i < len; i++)
+    {
+        object = (struct object *) Seq_remlo(allocated_objects);
+        if (object->marked)
+        {
+            object->marked = false;
+            Seq_addhi(allocated_objects, object);
+        }
+        else
+        {
+            object_destroy(object);            
+        }
+    }
+}
+
+void objects_destroy(void)
+{
+    while (Seq_length(allocated_objects) > 0)
+    {
+        object_destroy((struct object *) Seq_remlo(allocated_objects));
+    }
+    Seq_free(&allocated_objects);
 }

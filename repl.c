@@ -7,7 +7,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "evaluator.h"
-#include "env.h"
+#include "object.h"
 #include "builtins.h"
 
 static void print_parse_errors(struct parser *parser)
@@ -23,14 +23,15 @@ static void print_parse_errors(struct parser *parser)
 
 void repl_start(void)
 {
-    struct environment *env;
+    struct env_object *env;
     char input[1024];
 
     Fmt_register('T', Text_fmt);
     lexer_init();
     parser_init();
     builtins_init();
-    env = environment_alloc();
+    objects_init();
+    env = env_object_alloc(NULL);
     while (true)
     {
         struct lexer *lexer;
@@ -61,11 +62,11 @@ void repl_start(void)
             {
                 Fmt_print("%s\n", object_inspect(object));
             }
-            object_destroy(object);
+            objects_gc(env);
         }
         program_destroy(program);
         parser_destroy(parser);
         lexer_destroy(lexer);
     }
-    environment_destroy(env);
+    objects_destroy();
 }

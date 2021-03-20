@@ -52,7 +52,6 @@ static struct object *first(Seq_T args)
         if (Seq_length(array_object->elements) > 0)
         {
             object = Seq_get(array_object->elements, 0);
-            object_addref(object);
             return object;
         }
         return (struct object *) &null_object;
@@ -79,7 +78,6 @@ static struct object *last(Seq_T args)
         if (Seq_length(array_object->elements) > 0)
         {
             object = Seq_get(array_object->elements, Seq_length(array_object->elements) - 1);
-            object_addref(object);
             return object;
         }
         return (struct object *) &null_object;
@@ -110,7 +108,6 @@ static struct object *rest(Seq_T args)
             for (int i = 1; i < Seq_length(array_object->elements); i++)
             {
                 object = (struct object *) Seq_get(array_object->elements, i);
-                object_addref(object);
                 Seq_addhi(elements, object);
             }
             return (struct object *) array_object_alloc(elements);
@@ -141,11 +138,9 @@ static struct object *push(Seq_T args)
         for (int i = 0; i < Seq_length(array_object->elements); i++)
         {
             object = (struct object *) Seq_get(array_object->elements, i);
-            object_addref(object);
             Seq_addhi(elements, object);
         }
         object = (struct object *) Seq_get(args, 1);
-        object_addref(object);
         Seq_addhi(elements, object);
         return (struct object *) array_object_alloc(elements);
     }
@@ -167,14 +162,7 @@ static struct object *putz(Seq_T args)
 
 struct object *builtins_get(struct identifier *identifier)
 {
-    struct object *object;
-    
-    object = (struct object *) Table_get(builtins, &identifier->value);
-    if (object != NULL)
-    {
-        object->cnt++;
-    }
-    return object;
+    return (struct object *) Table_get(builtins, &identifier->value);
 }
 
 void builtins_init(void)

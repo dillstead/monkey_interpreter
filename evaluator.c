@@ -1,9 +1,10 @@
 #include <str.h>
+#include <mem.h>
 
 #include "builtins.h"
 #include "evaluator.h"
 
-static struct object *eval_program(struct program *program, struct environment *env)
+static struct object *eval_program(struct program *program, struct env_object *env)
 {
     struct object *object;
     struct return_value *return_value;
@@ -15,23 +16,18 @@ static struct object *eval_program(struct program *program, struct environment *
         {
             return_value = (struct return_value *) object;
             object = return_value->value;
-            object_destroy((struct object *) return_value);
             return object;
         }
         else if (object->type == ERROR_OBJ)
         {
             return object;
         }
-        else if (i < Seq_length(program->statements) - 1)
-        {
-            object_destroy(object);
-        }
     }
     return object;
 }
 
 static struct object *eval_expression_statement(struct expression_statement *expression_statement,
-                                                struct environment *env)
+                                                struct env_object *env)
 {
     return eval((struct node *) expression_statement->expression, env);    
 }
@@ -84,7 +80,7 @@ static struct object *eval_minus_prefix_operator_expression(struct object *right
     return (struct object *) integer_object_alloc(-value);
 }
 
-static struct object *eval_prefix_expression(struct prefix_expression *prefix_expression, struct environment *env)
+static struct object *eval_prefix_expression(struct prefix_expression *prefix_expression, struct env_object *env)
 {
     struct object *right = NULL;
     struct object *object = NULL;
@@ -107,7 +103,6 @@ static struct object *eval_prefix_expression(struct prefix_expression *prefix_ex
         object = (struct object *) error_object_alloc("unknown operator: %T%s", &prefix_expression->op,
                                                       object_type_str[right->type]);
     }
-    object_destroy(right);
     return object;
 }
 
@@ -164,24 +159,27 @@ static struct object *eval_string_infix_expression(struct object *left, struct o
     char *left_value;
     char *right_value;
     char *value;
+    struct object *object;
 
     left_value = ((struct string_object *) left)->value;
     right_value = ((struct string_object *) right)->value;
     if (Text_cmp(op, (Text_T) { sizeof "+" - 1, "+" }) == 0)
     {
         value = Str_cat(left_value, 1, 0, right_value, 1, 0);
-        return (struct object *) string_object_alloc(Text_box(value, Str_len(value, 1, 0)));
+        object = (struct object *) string_object_alloc(Text_box(value, Str_len(value, 1, 0)));
+        FREE(value);
     }
     else
     {
-        return (struct object *) error_object_alloc("unknown operator: %s %T %s", 
-                                                    object_type_str[left->type],
-                                                    &op,
-                                                    object_type_str[right->type]);   
+        object = (struct object *) error_object_alloc("unknown operator: %s %T %s", 
+                                                      object_type_str[left->type],
+                                                      &op,
+                                                      object_type_str[right->type]);   
     }
+    return object;
 }
 
-static struct object *eval_infix_expression(struct infix_expression *infix_expression, struct environment *env)
+static struct object *eval_infix_expression(struct infix_expression *infix_expression, struct env_object *env)
 {
     struct object *right = NULL;
     struct object *left = NULL;
@@ -196,7 +194,6 @@ static struct object *eval_infix_expression(struct infix_expression *infix_expre
     right = eval((struct node *) infix_expression->right, env);
     if (right->type == ERROR_OBJ)
     {
-        object_destroy(left);
         return right;
     }
     if (left->type == INTEGER_OBJ && right->type == INTEGER_OBJ)
@@ -229,12 +226,10 @@ static struct object *eval_infix_expression(struct infix_expression *infix_expre
                                                       &op,
                                                       object_type_str[right->type]);   
     }
-    object_destroy(left);
-    object_destroy(right);
     return object;
 }
 
-static struct object *eval_block_statement(struct block_statement *block_statement, struct environment *env)
+static struct object *eval_block_statement(struct block_statement *block_statement, struct env_object *env)
 {
     struct object *object;
 
@@ -245,15 +240,11 @@ static struct object *eval_block_statement(struct block_statement *block_stateme
         {
             return object;
         }
-        if (i < Seq_length(block_statement->statements) - 1)
-        {
-            object_destroy(object);
-        }
     }
     return object;
 }
 
-static struct object *eval_return_statement(struct return_statement *return_statement, struct environment *env)
+static struct object *eval_return_statement(struct return_statement *return_statement, struct env_object *env)
 {
     struct object *value;
     
@@ -265,7 +256,7 @@ static struct object *eval_return_statement(struct return_statement *return_stat
     return (struct object *) return_value_alloc(value);    
 }
 
-static struct object *eval_let_statement(struct let_statement *let_statement, struct environment *env)
+static struct object *eval_let_statement(struct let_statement *let_statement, struct env_object *env)
 {
     struct object *value;
     
@@ -274,15 +265,15 @@ static struct object *eval_let_statement(struct let_statement *let_statement, st
     {
         return value;
     }
-    environment_set(env, let_statement->name->value, value);
+    env_set(env, let_statement->name->value, value);
     return (struct object *) &null_object;
 }
 
-static struct object *eval_identifier(struct identifier *identifier, struct environment *env)
+static struct object *eval_identifier(struct identifier *identifier, struct env_object *env)
 {
     struct object *value;
     
-    value = environment_get(env, identifier->value);
+    value = env_get(env, identifier->value);
     if (value != NULL)
     {
         return value;
@@ -316,7 +307,7 @@ static bool is_truthy(struct object *object)
     }
 }
 
-static struct object *eval_if_expression(struct if_expression *if_expression, struct environment *env)
+static struct object *eval_if_expression(struct if_expression *if_expression, struct env_object *env)
 {
     struct object *condition;
     struct object *object =  (struct object *) &null_object;
@@ -334,20 +325,18 @@ static struct object *eval_if_expression(struct if_expression *if_expression, st
     {
         object = eval((struct node *) if_expression->alternative, env);
     }
-    object_destroy(condition);
     return object;
 }
 
 static struct object *eval_function_literal(struct function_literal *function_literal,
-                                            struct environment *env)
+                                            struct env_object *env)
 {
     return (struct object *) function_object_alloc(function_literal, env);
 }
 
-static Seq_T eval_expressions(Seq_T args, struct environment *env)
+static Seq_T eval_expressions(Seq_T args, struct env_object *env)
 {
     struct object *evaluated;
-    struct object *removed;
     Seq_T result;
 
     result = Seq_new(Seq_length(args));
@@ -358,8 +347,7 @@ static Seq_T eval_expressions(Seq_T args, struct environment *env)
         {
             while (Seq_length(result) > 0)
             {
-                removed = (struct object *) Seq_remlo(result);
-                object_destroy(removed);
+                Seq_remlo(result);
             }
             Seq_addhi(result, evaluated);
             return result;
@@ -369,16 +357,16 @@ static Seq_T eval_expressions(Seq_T args, struct environment *env)
     return result;
 }
 
-static struct environment *extend_function_env(struct function_object *function, Seq_T args)
+static struct env_object *extend_function_env(struct function_object *function, Seq_T args)
 {
-    struct environment *env;
+    struct env_object *env;
     struct identifier *param;
 
-    env = enclosed_environment_alloc(function->env);
+    env = env_object_alloc(function->env);
     for (int i = 0; i < Seq_length(function->value->parameters); i++)
     {
         param = (struct identifier *) Seq_get(function->value->parameters, i);
-        environment_set(env, param->value, (struct object *) Seq_get(args, i));
+        env_set(env, param->value, (struct object *) Seq_get(args, i));
     }
     return env;
 }
@@ -391,7 +379,6 @@ struct object *unwrap_return_value(struct object *object)
     {
         return_value = (struct return_value *) object;
         object = return_value->value;
-        object_destroy((struct object *) return_value);
         return object;
     }
     return object;
@@ -399,7 +386,7 @@ struct object *unwrap_return_value(struct object *object)
 
 static struct object *apply_function(struct object *object, Seq_T args)
 {
-    struct environment *env;
+    struct env_object *env;
     struct function_object *function;
     struct builtin_object *builtin;
     struct object *evaluated;
@@ -409,7 +396,6 @@ static struct object *apply_function(struct object *object, Seq_T args)
         function = (struct function_object *) object;
         env = extend_function_env(function, args);
         evaluated = eval((struct node *) function->value->body, env);
-        environment_destroy(env);
         return unwrap_return_value(evaluated);
     }
     else if (object->type == BUILTIN_OBJ)
@@ -422,7 +408,7 @@ static struct object *apply_function(struct object *object, Seq_T args)
 }
 
 static struct object *eval_call_expression(struct call_expression *call_expression,
-                                           struct environment *env)
+                                           struct env_object *env)
 {
     struct object *object;
     struct object *arg;
@@ -441,22 +427,16 @@ static struct object *eval_call_expression(struct call_expression *call_expressi
         if (arg->type == ERROR_OBJ)
         {
             Seq_free(&args);
-            object_destroy(object);
             return arg;
         }
     }
     evaluated = apply_function(object, args);
-    for (int i = 0; i < Seq_length(args); i++)
-    {
-        object_destroy((struct object *) Seq_get(args, i));
-    }
     Seq_free(&args);
-    object_destroy(object);
     return evaluated;
 }
 
 static struct object *eval_array_literal(struct array_literal *array_literal,
-                                         struct environment *env)
+                                         struct env_object *env)
 {
     struct object *element;
     Seq_T elements;
@@ -475,7 +455,7 @@ static struct object *eval_array_literal(struct array_literal *array_literal,
 }
 
 static struct object *eval_hash_literal(struct hash_literal *hash_literal,
-                                        struct environment *env)
+                                        struct env_object *env)
 {
     struct object *object = NULL;
     struct object *key;
@@ -509,7 +489,6 @@ static struct object *eval_hash_literal(struct hash_literal *hash_literal,
 cleanup:
     if (object != NULL && object->type == ERROR_OBJ)
     {
-        Table_map(pairs, free_hash_pairs, NULL);
         Table_free(&pairs);
         return object;
     }
@@ -527,7 +506,6 @@ static struct object *eval_array_index_expression(struct object *left, struct ob
         return (struct object *) &null_object;
     }
     object = (struct object *) Seq_get(array->elements, index_value);
-    object_addref(object);
     return object;
 }
 
@@ -546,12 +524,11 @@ static struct object *eval_hash_index_expression(struct object *left, struct obj
     {
         return (struct object *) &null_object;
     }
-    object_addref(object);
     return object;
 }
 
 static struct object *eval_index_expression(struct index_expression *index_expression,
-                                            struct environment *env)
+                                            struct env_object *env)
 {
     struct object *left = NULL;
     struct object *index = NULL;
@@ -565,7 +542,6 @@ static struct object *eval_index_expression(struct index_expression *index_expre
     index = eval((struct node *) index_expression->index, env);
     if (index->type == ERROR_OBJ)
     {
-        object_destroy(left);
         return index;
     }
     if (left->type == ARRAY_OBJ && index->type == INTEGER_OBJ)
@@ -581,12 +557,10 @@ static struct object *eval_index_expression(struct index_expression *index_expre
         object = (struct object *) error_object_alloc("index operator not supported: %s", 
                                                       object_type_str[left->type]);
     }
-    object_destroy(left);
-    object_destroy(index);
     return object;
 }
     
-struct object *eval(struct node *node, struct environment *env)
+struct object *eval(struct node *node, struct env_object *env)
 {
     switch (node->type)
     {

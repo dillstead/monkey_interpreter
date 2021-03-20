@@ -5,8 +5,10 @@
 
 #include "parser.h"
 #include "evaluator.h"
-#include "env.h"
+#include "object.h"
 #include "builtins.h"
+
+static struct env_object *env;
 
 static struct object *test_eval(const char *input)
 {
@@ -14,14 +16,11 @@ static struct object *test_eval(const char *input)
     struct lexer *lexer = NULL;
     struct parser *parser = NULL;
     struct program *program = NULL;
-    struct environment *env = NULL;
 
     lexer = lexer_alloc(input);
     parser = parser_alloc(lexer);
     program = parser_parse_program(parser);
-    env = environment_alloc();
     object = eval((struct node *) program, env);
-    environment_destroy(env);
     program_destroy(program);
     lexer_destroy(lexer);
     parser_destroy(parser);
@@ -34,7 +33,7 @@ static int test_integer_object(struct object *object, long long expected)
     
     if (object->type != INTEGER_OBJ)
     {
-        Fmt_print("object is not integer got=%d\n", object_type_str[object->type]);
+        Fmt_print("object is not integer got=%s\n", object_type_str[object->type]);
         return -1;
     }
     integer_object = (struct integer_object *) object;
@@ -53,7 +52,7 @@ static int test_boolean_object(struct object *object, bool expected)
     
     if (object->type != BOOLEAN_OBJ)
     {
-        Fmt_print("object is not boolean got=%d\n", object_type_str[object->type]);
+        Fmt_print("object is not boolean got=%s\n", object_type_str[object->type]);
         return -1;
     }
     boolean_object = (struct boolean_object *) object;
@@ -101,29 +100,16 @@ static int test_eval_integer_expressions(void)
               {"(5 + 10 * 2 + 15 / 3) * 2 + -10", 50}
           };
     struct object *object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
         if (test_integer_object(object, tests[i].expected) != 0)
         {
-            goto cleanup;
+            return -1;
         }
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_eval_boolean_expressions(void)
@@ -147,29 +133,16 @@ static int test_eval_boolean_expressions(void)
               {"(1 > 2) == false", true}
           };
     struct object *object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
         if (test_boolean_object(object, tests[i].expected) != 0)
         {
-            goto cleanup;
+            return -1;
         }
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_eval_string_expressions(void)
@@ -178,34 +151,21 @@ static int test_eval_string_expressions(void)
     char *expected = "Hello World!";
     struct object *object;
     struct string_object *string_object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     object = test_eval(input);
     if (object->type != STRING_OBJ)
     {
-        Fmt_print("object is not string got=%d\n", object_type_str[object->type]);
-        goto cleanup;
+        Fmt_print("object is not string got=%s\n", object_type_str[object->type]);
+        return -1;
     }
     string_object = (struct string_object *) object;
     if (Str_cmp(string_object->value, 1, 0, expected, 1, 0) != 0)
     {
         Fmt_print("object has wrong value got=%s, want=%s\n",
                   string_object->value, expected);
-        goto cleanup;
+        return -1;
     }
-    object_destroy(object);
-    object = NULL;
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_string_concatentation(void)
@@ -214,34 +174,21 @@ static int test_string_concatentation(void)
     char *expected = "Hello World!";
     struct object *object;
     struct string_object *string_object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     object = test_eval(input);
     if (object->type != STRING_OBJ)
     {
-        Fmt_print("object is not string got=%d\n", object_type_str[object->type]);
-        goto cleanup;
+        Fmt_print("object is not string got=%s\n", object_type_str[object->type]);
+        return -1;
     }
     string_object = (struct string_object *) object;
     if (Str_cmp(string_object->value, 1, 0, expected, 1, 0) != 0)
     {
         Fmt_print("object has wrong value got=%s, want=%s\n",
                   string_object->value, expected);
-        goto cleanup;
+        return -1;
     }
-    object_destroy(object);
-    object = NULL;
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_eval_array_expressions(void)
@@ -250,49 +197,36 @@ static int test_eval_array_expressions(void)
     struct object *object;
     struct object *element;
     struct array_object *array_object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     object = test_eval(input);
     if (object->type != ARRAY_OBJ)
     {
-        Fmt_print("object is not array got=%d\n", object_type_str[object->type]);
-        goto cleanup;
+        Fmt_print("object is not array got=%s\n", object_type_str[object->type]);
+        return -1;
     }
     array_object = (struct array_object *) object;
     if (Seq_length(array_object->elements) != 3)
     {
         Fmt_print("array has wrong number of elements, got=%d\n",
                   Seq_length(array_object->elements));
-        goto cleanup;
+        return -1;        
     }
     element = (struct object *) Seq_get(array_object->elements, 0);
     if (test_integer_object(element, 1) != 0)
     {
-        goto cleanup;
+        return -1;
     }
     element = (struct object *) Seq_get(array_object->elements, 1);
     if (test_integer_object(element, 4) != 0)
     {
-        goto cleanup;
+        return -1;
     }
     element = (struct object *) Seq_get(array_object->elements, 2);
     if (test_integer_object(element, 6) != 0)
     {
-        goto cleanup;
+        return -1;
     }
-    object_destroy(object);
-    object = NULL;
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_eval_hash_expressions(void)
@@ -315,29 +249,25 @@ static int test_eval_hash_expressions(void)
     struct object *object;
     struct object *value;
     struct hash_object *hash_object;
-    int success = -1;
 
     expected[0].key = (struct object *) string_object_alloc((Text_T) {sizeof "one" - 1, "one"});
     expected[1].key = (struct object *) string_object_alloc((Text_T) {sizeof "two" - 1, "two"});
     expected[2].key = (struct object *) string_object_alloc((Text_T) {sizeof "three" - 1, "three"});
     expected[3].key = (struct object *) integer_object_alloc(4);
-    expected[4].key = (struct object *) boolean_object_alloc(true);
-    expected[5].key = (struct object *) boolean_object_alloc(false);        
-    lexer_init();
-    parser_init();
-    builtins_init();
+    expected[4].key = (struct object *) &true_object;
+    expected[5].key = (struct object *) &false_object;
     object = test_eval(input);
     if (object->type != HASH_OBJ)
     {
-        Fmt_print("object is not hash got=%d\n", object_type_str[object->type]);
-        goto cleanup;
+        Fmt_print("object is not hash got=%s\n", object_type_str[object->type]);
+        return -1;
     }
     hash_object = (struct hash_object *) object;
     if (Table_length(hash_object->pairs) != 6)
     {
         Fmt_print("hash has wrong number of elements, got=%d\n",
                   Table_length(hash_object->pairs));
-        goto cleanup;
+        return -1;        
     }
     for (int i = 0; i < sizeof expected / sizeof expected[0]; i++)
     {
@@ -345,27 +275,14 @@ static int test_eval_hash_expressions(void)
         if (value == NULL)
         {
             Fmt_print("no pair for given key\n");
-            goto cleanup;
+            return -1;
         }
         if (test_integer_object(value, expected[i].value) != 0)
         {
-            goto cleanup;
+            return -1;
         }            
     }
-    object_destroy(object);
-    object = NULL;
-    success = 0;
-
-cleanup:
-    for (int i = 0; i < sizeof expected / sizeof expected[0]; i++)
-    {
-        object_destroy(expected[i].key);
-    }
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_hash_index_expressions(void)
@@ -386,11 +303,7 @@ static int test_hash_index_expressions(void)
               {"{false: 5}[false]", INTEGER_OBJ, 5}
           };
     struct object *object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -398,31 +311,18 @@ static int test_hash_index_expressions(void)
         {
             if (test_integer_object(object, tests[i].expected) != 0)
             {
-                goto cleanup;
+                return -1;
             }            
         }
         else if (tests[i].type == NULL_OBJ)
         {
             if (test_null_object(object) != 0)
             {
-                goto cleanup;
+                return -1;
             }
         }
-        else
-        {
-            goto cleanup;
-        }
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_array_index_expressions(void)
@@ -443,14 +343,10 @@ static int test_array_index_expressions(void)
               {"let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];", INTEGER_OBJ, 6},
               {"let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]", INTEGER_OBJ, 2},
               {"[1, 2, 3][3]", NULL_OBJ},
-              {"[1, 2, 3][-1]", NULL_OBJ},
+              {"[1, 2, 3][-1]", NULL_OBJ}
           };
     struct object *object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -458,31 +354,18 @@ static int test_array_index_expressions(void)
         {
             if (test_integer_object(object, tests[i].expected) != 0)
             {
-                goto cleanup;
+                return -1;
             }            
         }
         else if (tests[i].type == NULL_OBJ)
         {
             if (test_null_object(object) != 0)
             {
-                goto cleanup;
+                return -1;
             }
         }
-        else
-        {
-            goto cleanup;
-        }
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_bang_operator(void)
@@ -501,29 +384,16 @@ static int test_bang_operator(void)
               {"!!5", true}
           };
     struct object *object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
         if (test_boolean_object(object, tests[i].expected) != 0)
         {
-            goto cleanup;
+            return -1;
         }
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_if_else_expressions(void)
@@ -544,11 +414,7 @@ static int test_if_else_expressions(void)
               {"if (1 < 2) { 10 } else { 20 }", INTEGER_OBJ, 10}
           };
     struct object *object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -556,31 +422,18 @@ static int test_if_else_expressions(void)
         {
             if (test_integer_object(object, tests[i].expected) != 0)
             {
-                goto cleanup;
+                return -1;
             }            
         }
         else if (tests[i].type == NULL_OBJ)
         {
             if (test_null_object(object) != 0)
             {
-                goto cleanup;
+                return -1;
             }
         }
-        else
-        {
-            goto cleanup;
-        }
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_return_statements(void)
@@ -598,29 +451,16 @@ static int test_return_statements(void)
               { "if (10 > 1) { if (10 > 1) { return 10; } return 1; }", 10}
           };
     struct object *object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
         if (test_integer_object(object, tests[i].expected) != 0)
         {
-            goto cleanup;
+            return -1;
         }            
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_error_handling(void)
@@ -631,7 +471,7 @@ static int test_error_handling(void)
         const char *expected;
     } tests[] =
           {
-              {
+              /*{
                 "5 + true;",
                 "type mismatch: INTEGER + BOOLEAN"
               },
@@ -693,53 +533,40 @@ static int test_error_handling(void)
 	      {
                   "push(1, 2)",
                   "first argument to 'push' must be ARRAY, got INTEGER"
-              },
+              },*/
               {
                   "{ []: 1 + 1 }",
                   "unusable as hash key, got ARRAY"
               },
-              {
+              /*{
                   "{\"name\": \"Monkey\"}[fn(x) { x }];",
                   "unusable as hash key, got FUNC",
               },
               {
                   "\"name\"[0]",
                   "index operator not supported: STRING"
-              }
+              }*/
           };
     struct object *object;
     struct error_object *error_object;
-    int success = -1;
-
-    lexer_init();
-    parser_init();
-    builtins_init();
+ 
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
         if (object->type != ERROR_OBJ)
         {
-            Fmt_print("object is not error got=%d\n", object_type_str[object->type]);
-            goto cleanup;
+            Fmt_print("object is not error got=%s\n", object_type_str[object->type]);
+            return -1;
         }
         error_object = (struct error_object *) object;
         if (strcmp(error_object->value, tests[i].expected) != 0)
         {
             Fmt_print("object has wrong value got=%s, want=%s\n",
                       error_object->value, tests[i].expected);
-            goto cleanup;
+            return -1;
         }            
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_let_statements(void)
@@ -756,29 +583,16 @@ static int test_let_statements(void)
               {"let a = 5; let b = a; let c = a + b + 5; c;", 15},
           };
     struct object *object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
         if (test_integer_object(object, tests[i].expected) != 0)
         {
-            goto cleanup;
+            return -1;
         }
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_function_object(void)
@@ -790,13 +604,10 @@ static int test_function_object(void)
     char *str = NULL;
     int success = -1;
     
-    lexer_init();
-    parser_init();
-    builtins_init();
     object = test_eval(input);
     if (object->type != FUNC_OBJ)
     {
-        Fmt_print("object is not function got=%d\n", object_type_str[object->type]);
+        Fmt_print("object is not function got=%s\n", object_type_str[object->type]);
         goto cleanup;
     }
     function_object = (struct function_object *) object;
@@ -827,10 +638,6 @@ cleanup:
     {
         FREE(str);
     }
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
     return success;
 }
 
@@ -850,29 +657,16 @@ static int test_function_application(void)
               {"fn(x) { x; }(5)", 5},
           };
     struct object *object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
         if (test_integer_object(object, tests[i].expected) != 0)
         {
-            goto cleanup;
+            return -1;
         }
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 static int test_builtin_functions(void)
@@ -905,11 +699,7 @@ static int test_builtin_functions(void)
            };
     struct object *object;
     struct array_object *array_object;
-    int success = -1;
 
-    lexer_init();
-    parser_init();
-    builtins_init();
     for (int i = 0; i < sizeof tests / sizeof tests[0]; i++)
     {
         object = test_eval(tests[i].input);
@@ -917,28 +707,28 @@ static int test_builtin_functions(void)
         {
             if (test_integer_object(object, tests[i].value) != 0)
             {
-                goto cleanup;
+                return -1;
             }            
         }
         else if (tests[i].type == ARRAY_OBJ)
         {
             if (object->type != ARRAY_OBJ)
             {
-                Fmt_print("object is not array got=%d\n", object_type_str[object->type]);
-                goto cleanup;
+                Fmt_print("object is not array got=%s\n", object_type_str[object->type]);
+                return -1;
             }
             array_object = (struct array_object *) object;
             if (Seq_length(array_object->elements) != tests[i].value)
             {
                 Fmt_print("wrong number of elements. want=%d, got=%d", tests[i].value,
                           Seq_length(array_object->elements));
-                goto cleanup;
+                return -1;
             }
             for (int j = 0; j < tests[i].elements[j]; j++)
             {
                 if (test_integer_object(Seq_get(array_object->elements, j), tests[i].elements[j]) != 0)
                 {
-                    goto cleanup;
+                    return -1;
                 }
             }
         }
@@ -946,92 +736,122 @@ static int test_builtin_functions(void)
         {
             if (test_null_object(object) != 0)
             {
-                goto cleanup;
+                return -1;
             }
         }
-        else
-        {
-            goto cleanup;
-        }
-        object_destroy(object);
-        object = NULL;
     }
-    success = 0;
-
-cleanup:
-    if (object != NULL)
-    {
-        object_destroy(object);
-    }
-    return success;
+    return 0;
 }
 
 int main(void)
 {
+    lexer_init();
+    parser_init();
+    builtins_init();
+    objects_init();
+    env = env_object_alloc(NULL);
+    int rc = EXIT_SUCCESS;
+
     if (test_eval_integer_expressions() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_eval_integer_expressions failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_eval_boolean_expressions() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_eval_boolean_expressions failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_eval_string_expressions() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_eval_string_expressions failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_string_concatentation() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_eval_string_concatenation failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_eval_array_expressions() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_eval_array_expressions failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_array_index_expressions() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_array_index_expressions failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_eval_hash_expressions() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_eval_hash_expressions failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_hash_index_expressions() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_hash_index_expressions failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_bang_operator() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_bang_operator failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_if_else_expressions() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_if_else_expressions failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_return_statements() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_return_statements failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_error_handling() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_error_handling failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_let_statements() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_let_statements failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_function_object() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_function_object failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_function_application() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_function_application failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     if (test_builtin_functions() != 0)
     {
-        return EXIT_FAILURE;
+        printf("test_builtin_functions failed\n");
+        goto cleanup;
     }
+    objects_gc(env);
     printf("Tests successful\n");
-    return EXIT_SUCCESS;
+    rc = EXIT_SUCCESS;
+
+cleanup:
+    objects_destroy();
+    return rc;
 }
