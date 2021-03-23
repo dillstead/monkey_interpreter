@@ -757,97 +757,81 @@ int main(void)
         printf("test_eval_integer_expressions failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_eval_boolean_expressions() != 0)
     {
         printf("test_eval_boolean_expressions failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_eval_string_expressions() != 0)
     {
         printf("test_eval_string_expressions failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_string_concatentation() != 0)
     {
         printf("test_eval_string_concatenation failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_eval_array_expressions() != 0)
     {
         printf("test_eval_array_expressions failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_array_index_expressions() != 0)
     {
         printf("test_array_index_expressions failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_eval_hash_expressions() != 0)
     {
         printf("test_eval_hash_expressions failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_hash_index_expressions() != 0)
     {
         printf("test_hash_index_expressions failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_bang_operator() != 0)
     {
         printf("test_bang_operator failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_if_else_expressions() != 0)
     {
         printf("test_if_else_expressions failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_return_statements() != 0)
     {
         printf("test_return_statements failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_error_handling() != 0)
     {
         printf("test_error_handling failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_let_statements() != 0)
     {
         printf("test_let_statements failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_function_object() != 0)
     {
         printf("test_function_object failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_function_application() != 0)
     {
         printf("test_function_application failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     if (test_builtin_functions() != 0)
     {
         printf("test_builtin_functions failed\n");
         goto cleanup;
     }
-    objects_gc(env);
     printf("Tests successful\n");
     rc = EXIT_SUCCESS;
 
